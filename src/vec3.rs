@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub};
+use crate::rtweekend::{random_double, random_double_range};
 
 #[derive(Default, Copy, Clone)]
 pub struct Vec3 {
@@ -13,6 +14,38 @@ impl Vec3 {
 
     pub fn unit(&self) -> Self {
         *self / self.length()
+    }
+
+    pub fn random_unit() -> Self {
+        loop {
+            let p = Self::random_range(-1.0, 1.0);
+            let len_squared = p.length_squared();
+            if 1e-160 < len_squared && len_squared <= 1.0 {
+                return p / len_squared.sqrt();
+            }
+        }
+    }
+
+    pub fn random_on_hemisphere(normal: &Vec3) -> Self {
+        let on_unit_sphere = Self::random_unit();
+        if on_unit_sphere.dot(normal) > 0.0 {
+            // The random vector is in the same hemisphere as the normal vector
+            on_unit_sphere
+        } else {
+            -on_unit_sphere
+        }
+    }
+
+    pub fn random() -> Self {
+        Self::new(random_double(), random_double(), random_double())
+    }
+
+    pub fn random_range(min: f64, max: f64) -> Self {
+        Self::new(
+            random_double_range(min, max),
+            random_double_range(min, max),
+            random_double_range(min, max),
+        )
     }
 
     pub fn x(&self) -> f64 { self.e[0] }
