@@ -16,6 +16,14 @@ pub struct Camera {
 }
 
 impl Camera {
+    pub fn new() -> Self {
+        Self {
+            aspect_ratio: 1.0,
+            image_width: 100,
+            ..Default::default()
+        }
+    }
+    
     pub fn render(&mut self, world: &dyn Hittable) {
         self.initialise();
 
