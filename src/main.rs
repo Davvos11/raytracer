@@ -2,6 +2,7 @@ use std::rc::Rc;
 use crate::color::{color_to_string, Color};
 use crate::hittable::{HitRecord, Hittable};
 use crate::hittable_list::HittableList;
+use crate::interval::Interval;
 use crate::ray::Ray;
 use crate::sphere::Sphere;
 use crate::vec3::{Point3, Vec3};
@@ -13,6 +14,7 @@ mod hittable;
 mod sphere;
 mod hittable_list;
 mod rtweekend;
+mod interval;
 
 fn main() {
     // Image setup
@@ -68,7 +70,7 @@ fn main() {
 
 fn ray_color(r: &Ray, world: &dyn Hittable) -> Color {
     let mut rec = HitRecord::default();
-    if world.hit(r, 0.0, f64::INFINITY, &mut rec) {
+    if world.hit(r, Interval::new(0.0, f64::INFINITY), &mut rec) {
         0.5 * (rec.normal + Color::new(1.0, 1.0, 1.0))
     } else {
         let unit_direction = r.direction().unit();
