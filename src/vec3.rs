@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub};
 
-#[derive(Default)]
+#[derive(Default, Copy, Clone)]
 pub struct Vec3 {
     e: [f64; 3],
 }
@@ -9,6 +9,10 @@ pub struct Vec3 {
 impl Vec3 {
     pub fn new(e0: f64, e1: f64, e2: f64) -> Self {
         Self { e: [e0, e1, e2] }
+    }
+    
+    pub fn unit(&self) -> Self {
+        *self / self.length()
     }
 
     pub fn x(&self) -> f64 { self.e[0] }
@@ -86,15 +90,14 @@ impl Display for Vec3 {
     }
 }
 
-impl Add for &Vec3 {
+impl Add for Vec3 {
     type Output = Vec3;
-
     fn add(self, rhs: Self) -> Self::Output {
         Vec3::new(self.x() + rhs.x(), self.y() + rhs.y(), self.z() + rhs.z())
     }
 }
 
-impl Sub for &Vec3 {
+impl Sub for Vec3 {
     type Output = Vec3;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -102,7 +105,7 @@ impl Sub for &Vec3 {
     }
 }
 
-impl Mul for &Vec3 {
+impl Mul for Vec3 {
     type Output = Vec3;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -110,7 +113,7 @@ impl Mul for &Vec3 {
     }
 }
 
-impl Mul<f64> for &Vec3 {
+impl Mul<f64> for Vec3 {
     type Output = Vec3;
 
     fn mul(self, t: f64) -> Self::Output {
@@ -118,19 +121,19 @@ impl Mul<f64> for &Vec3 {
     }
 }
 
-impl Mul<&Vec3> for f64 {
+impl Mul<Vec3> for f64 {
     type Output = Vec3;
 
-    fn mul(self, vec: &Vec3) -> Self::Output {
+    fn mul(self, vec: Vec3) -> Self::Output {
         vec * self
     }
 }
 
-impl Div<&Vec3> for f64 {
+impl Div<f64> for Vec3 {
     type Output = Vec3;
 
-    fn div(self, vec: &Vec3) -> Self::Output {
-        (1.0 / self) * vec
+    fn div(self, t: f64) -> Self::Output {
+        (1.0 / t) * self
     }
 }
 
