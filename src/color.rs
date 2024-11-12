@@ -1,3 +1,4 @@
+use crate::interval::Interval;
 use crate::vec3::Vec3;
 
 pub type Color = Vec3;
@@ -7,9 +8,11 @@ pub fn color_to_string(pixel_color: &Color) -> String {
     let g = pixel_color.y();
     let b = pixel_color.z();
 
-    let ir = (255.999 * r) as i32;
-    let ig = (255.999 * g) as i32;
-    let ib = (255.999 * b) as i32;
+    // Translate the [0,1] RGB values to the byte range [0,255]
+    let intensity = Interval::new(0.0, 0.999);
+    let rbyte = (256.0 * intensity.clamp(r)) as u32;
+    let gbyte = (256.0 * intensity.clamp(g)) as u32;
+    let bbyte = (256.0 * intensity.clamp(b)) as u32;
 
-    format!("{ir} {ig} {ib}\n")
+    format!("{rbyte} {gbyte} {bbyte}\n")
 }
