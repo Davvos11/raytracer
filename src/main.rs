@@ -8,8 +8,8 @@ fn main() {
     for j in 0..image_height {
         eprintln!("Scanlines remaining: {}", image_height -j);
         for i in 0..image_width {
-            let r = (i as f32) / (image_width as f32 - 1.0);
-            let g = (j as f32) / (image_height as f32 - 1.0);
+            let r = (i as f64) / (image_width as f64 - 1.0);
+            let g = (j as f64) / (image_height as f64 - 1.0);
             let b = 0.0;
 
             let ir= (255.999 * r) as i32;
