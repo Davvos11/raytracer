@@ -5,6 +5,8 @@ use crate::vec3::{Point3, Vec3};
 mod vec3;
 mod color;
 mod ray;
+mod hittable;
+mod sphere;
 
 fn main() {
     // Image setup
