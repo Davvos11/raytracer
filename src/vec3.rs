@@ -10,7 +10,7 @@ impl Vec3 {
     pub fn new(e0: f64, e1: f64, e2: f64) -> Self {
         Self { e: [e0, e1, e2] }
     }
-    
+
     pub fn unit(&self) -> Self {
         *self / self.length()
     }
@@ -26,11 +26,11 @@ impl Vec3 {
     pub fn length_squared(&self) -> f64 {
         self.x() * self.x() + self.y() * self.y() + self.z() * self.z()
     }
-    
+
     pub fn dot(&self, rhs: &Self) -> f64 {
         self.x() * rhs.x() + self.y() * rhs.y() + self.z() * rhs.z()
     }
-    
+
     pub fn cross(self, rhs: &Self) -> Self {
         Self::new(
             self.y() * rhs.z() - self.z() * rhs.y(),
