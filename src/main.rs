@@ -7,6 +7,7 @@ mod color;
 mod ray;
 mod hittable;
 mod sphere;
+mod hittable_list;
 
 fn main() {
     // Image setup
