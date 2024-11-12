@@ -1,5 +1,9 @@
+use std::rc::Rc;
 use crate::color::{color_to_string, Color};
+use crate::hittable::{HitRecord, Hittable};
+use crate::hittable_list::HittableList;
 use crate::ray::Ray;
+use crate::sphere::Sphere;
 use crate::vec3::{Point3, Vec3};
 
 mod vec3;
@@ -8,6 +12,7 @@ mod ray;
 mod hittable;
 mod sphere;
 mod hittable_list;
+mod rtweekend;
 
 fn main() {
     // Image setup
@@ -15,6 +20,11 @@ fn main() {
     let image_width = 400;
     let image_height = (image_width as f64 / aspect_ratio) as u32;
     let image_height = if image_height < 1 { 1 } else { image_height };
+
+    // World setup
+    let mut world = HittableList::default();
+    world.add(Rc::new(Sphere::new(Point3::new(0.0, 0.0, -1.0), 0.5)));
+    world.add(Rc::new(Sphere::new(Point3::new(0.0, -100.5, -1.0), 100.0)));
 
     // Camera setup
     let focal_length = 1.0;
@@ -47,7 +57,7 @@ fn main() {
             let ray_direction = pixel_center - camera_center;
             let r = Ray::new(camera_center, ray_direction);
 
-            let pixel_color = ray_color(&r);
+            let pixel_color = ray_color(&r, &world);
             ppm_string += color_to_string(&pixel_color).as_str();
         }
     }
@@ -56,16 +66,15 @@ fn main() {
     println!("{ppm_string}");
 }
 
-fn ray_color(r: &Ray) -> Color {
-    let t = hit_sphere(&Point3::new(0.0, 0.0, -1.0), 0.5, r);
-    if t > 0.0 {
-        let n = (r.at(t) - Vec3::new(0.0, 0.0, -1.0)).unit();
-        return 0.5 * Color::new(n.x() + 1.0, n.y() + 1.0, n.z() + 1.0);
+fn ray_color(r: &Ray, world: &dyn Hittable) -> Color {
+    let mut rec = HitRecord::default();
+    if world.hit(r, 0.0, f64::INFINITY, &mut rec) {
+        0.5 * (rec.normal + Color::new(1.0, 1.0, 1.0))
+    } else {
+        let unit_direction = r.direction().unit();
+        let a = 0.5 * (unit_direction.y() + 1.0);
+        (1.0 - a) * Color::new(1.0, 1.0, 1.0) + a * Color::new(0.5, 0.7, 1.0)
     }
-
-    let unit_direction = r.direction().unit();
-    let a = 0.5 * (unit_direction.y() + 1.0);
-    (1.0 - a) * Color::new(1.0, 1.0, 1.0) + a * Color::new(0.5, 0.7, 1.0)
 }
 
 fn hit_sphere(center: &Point3, radius: f64, r: &Ray) -> f64 {
