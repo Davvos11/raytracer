@@ -1,3 +1,5 @@
+mod vec3;
+
 fn main() {
     // Image
     let image_width = 256;
