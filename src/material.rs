@@ -11,6 +11,12 @@ pub struct Lambertian {
     albedo: Color,
 }
 
+impl Lambertian {
+    pub fn new(albedo: Color) -> Self {
+        Self { albedo }
+    }
+}
+
 impl Material for Lambertian {
     fn scatter(&self, _r_in: &Ray, rec: &HitRecord, attenuation: &mut Color, scattered: &mut Ray) -> bool {
         let mut scatter_direction = rec.normal + Vec3::random_unit();
@@ -31,7 +37,7 @@ pub struct Metal {
 }
 
 impl Metal {
-    fn new(albedo: Color) -> Self {
+    pub fn new(albedo: Color) -> Self {
         Self { albedo }
     }
 }
