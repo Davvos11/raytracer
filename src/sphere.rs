@@ -12,9 +12,8 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn new(center: Vec3, radius: f64) -> Self {
-        todo!("Initialise the material pointer");
-        Self { center, radius: f64::max(0.0, radius) }
+    pub fn new(center: Vec3, radius: f64, mat: Rc<dyn Material>) -> Self {
+        Self { center, radius: f64::max(0.0, radius), mat }
     }
 }
 
@@ -46,7 +45,7 @@ impl Hittable for Sphere {
         rec.normal = (rec.p - self.center) / self.radius;
         let outward_normal = (rec.p - self.center) / self.radius;
         rec.set_face_normal(r, outward_normal);
-        rec.mat = Some(self.mat);
+        rec.mat = Some(Rc::clone(&self.mat));
 
         true
     }
