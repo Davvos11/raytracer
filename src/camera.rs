@@ -2,7 +2,7 @@ use crate::color::{color_to_string, Color};
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::ray::Ray;
-use crate::rtweekend::random_double;
+use crate::rtweekend::{degrees_to_radians, random_double};
 use crate::vec3::{Point3, Vec3};
 
 #[derive(Default)]
@@ -11,6 +11,7 @@ pub struct Camera {
     pub image_width: u32,
     pub samples_per_pixel: u32,
     pub max_depth: u32,
+    pub vfov: f64,
     image_height: u32,
     pixel_samples_scale: f64,
     center: Point3,
@@ -26,6 +27,7 @@ impl Camera {
             image_width: 100,
             samples_per_pixel: 10,
             max_depth: 10,
+            vfov: 90.0,
             ..Default::default()
         }
     }
@@ -63,7 +65,9 @@ impl Camera {
 
         // Determine viewport
         let focal_length = 1.0;
-        let viewport_height = 2.0;
+        let theta = degrees_to_radians(self.vfov);
+        let h = (theta / 2.0).tan();
+        let viewport_height = 2.0 * h * focal_length;
         let viewport_width = viewport_height * (self.image_width as f64 / self.image_height as f64);
 
         // Calculate vectors across viewport edges
