@@ -40,10 +40,13 @@ fn main() {
     cam.samples_per_pixel = 100;
     cam.max_depth = 50;
 
-    cam.vfov = 60.0;
+    cam.vfov = 20.0;
     cam.look_from = Point3::new(-2.0, 2.0, 1.0);
     cam.look_at = Point3::new(0.0, 0.0, -1.0);
     cam.v_up = Vec3::new(0.0, 1.0, 0.0);
+
+    cam.defocus_angle = 10.0;
+    cam.focus_dist = 3.4;
 
     cam.render(&world);
 }
