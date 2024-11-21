@@ -1,10 +1,12 @@
+use std::fs::File;
 use crate::camera::Camera;
 use crate::color::Color;
 use crate::hittable_list::HittableList;
-use crate::material::{Dielectric, Lambertian, Metal};
+use crate::material::{Dielectric, Lambertian, Material, Metal};
 use crate::sphere::Sphere;
 use crate::vec3::{Point3, Vec3};
 use std::rc::Rc;
+use crate::hittable::Hittable;
 use crate::rtweekend::{random_double, random_double_range};
 
 mod vec3;
@@ -64,7 +66,14 @@ fn main() {
     let material_3 = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
     world.add(Rc::new(Sphere::new(Point3::new(4.0, 1.0, 0.0), 1.0, material_3)));
 
-    // Camera setup
+    // Serialize the world
+    let file = File::create("world.json").expect("Could not open world.json");
+    serde_json::to_writer(&file, &world).expect("Could not write to world.json");
+
+    // Deserialize the object
+    let file = File::open("world.json").expect("Could not open world.json");
+    let world: HittableList = serde_json::from_reader(&file).expect("Could not read world.json");
+    
     let mut cam = Camera::new();
     cam.aspect_ratio = 16.0 / 9.0;
     cam.image_width = 1200;

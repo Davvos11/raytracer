@@ -1,10 +1,12 @@
-use std::rc::Rc;
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::material::Material;
 use crate::ray::Ray;
 use crate::vec3::Vec3;
+use serde::{Deserialize, Serialize};
+use std::rc::Rc;
 
+#[derive(Serialize, Deserialize)]
 pub struct Sphere {
     center: Vec3,
     radius: f64,
@@ -17,6 +19,7 @@ impl Sphere {
     }
 }
 
+#[typetag::serde]
 impl Hittable for Sphere {
     fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
         let oc = self.center - *r.origin();

@@ -1,9 +1,10 @@
 use std::rc::Rc;
+use serde::{Deserialize, Serialize};
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::ray::Ray;
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct HittableList {
     pub objects: Vec<Rc<dyn Hittable>>,
 }
@@ -20,6 +21,7 @@ impl HittableList {
     }
 }
 
+#[typetag::serde]
 impl Hittable for HittableList {
     fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
         let mut temp_rec = HitRecord::default();

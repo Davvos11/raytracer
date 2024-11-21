@@ -22,6 +22,7 @@ impl HitRecord {
     }
 }
 
+#[typetag::serde(tag = "type")]
 pub trait Hittable {
     fn hit(&self, r: &Ray, ray_t: Interval, hit_record: &mut HitRecord) -> bool;
 }

@@ -1,13 +1,16 @@
+use serde::{Deserialize, Serialize};
 use crate::color::Color;
 use crate::hittable::HitRecord;
 use crate::ray::Ray;
 use crate::rtweekend::random_double;
 use crate::vec3::Vec3;
 
+#[typetag::serde(tag = "type")]
 pub trait Material {
     fn scatter(&self, r_in: &Ray, hit_record: &HitRecord, attenuation: &mut Color, scattered: &mut Ray) -> bool;
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Lambertian {
     albedo: Color,
 }
@@ -18,6 +21,7 @@ impl Lambertian {
     }
 }
 
+#[typetag::serde]
 impl Material for Lambertian {
     fn scatter(&self, _r_in: &Ray, rec: &HitRecord, attenuation: &mut Color, scattered: &mut Ray) -> bool {
         let mut scatter_direction = rec.normal + Vec3::random_unit();
@@ -33,6 +37,7 @@ impl Material for Lambertian {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Metal {
     albedo: Color,
     fuzz: f64,
@@ -44,6 +49,7 @@ impl Metal {
     }
 }
 
+#[typetag::serde]
 impl Material for Metal {
     fn scatter(&self, r_in: &Ray, rec: &HitRecord, attenuation: &mut Color, scattered: &mut Ray) -> bool {
         let reflected = Vec3::reflect(r_in.direction(), &rec.normal);
@@ -55,6 +61,7 @@ impl Material for Metal {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Dielectric {
     refraction_index: f64,
 }
@@ -65,6 +72,7 @@ impl Dielectric {
     }
 }
 
+#[typetag::serde]
 impl Material for Dielectric {
     fn scatter(&self, r_in: &Ray, rec: &HitRecord, attenuation: &mut Color, scattered: &mut Ray) -> bool {
         *attenuation = Color::new(1.0, 1.0, 1.0);
