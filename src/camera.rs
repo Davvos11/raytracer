@@ -1,6 +1,6 @@
 use std::io;
 use std::io::Write;
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressStyle};
 use crate::color::{color_to_string, Color};
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
@@ -50,16 +50,18 @@ impl Camera {
 
     pub fn render(&mut self, world: &dyn Hittable, writer: &mut impl Write) -> io::Result<()> {
         self.initialise();
-        
+
         // Display progress bar
         let bar = ProgressBar::new(self.image_height as u64);
+        bar.set_style(ProgressStyle::default_bar()
+            .template("{wide_bar} Lines completed: {percent}%, Elapsed: {elapsed_precise}, ETA: {eta_precise}").unwrap());
 
         let header = format!("P3\n{} {}\n255\n", self.image_width, self.image_height);
         writer.write_all(header.as_bytes())?;
 
         for j in 0..self.image_height {
             bar.inc(1);
-            
+
             for i in 0..self.image_width {
                 let mut pixel_color = Color::default();
                 for _ in 0..self.samples_per_pixel {
