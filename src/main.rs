@@ -73,5 +73,6 @@ fn main() {
 
     cam.render(&world, &mut file)
         .expect("Could not write to image file");
+    eprintln!("Wrote image to {filename}")
 }
 
