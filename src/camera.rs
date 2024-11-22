@@ -1,3 +1,5 @@
+use std::io;
+use std::io::Write;
 use crate::color::{color_to_string, Color};
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
@@ -45,10 +47,11 @@ impl Camera {
         }
     }
 
-    pub fn render(&mut self, world: &dyn Hittable) {
+    pub fn render(&mut self, world: &dyn Hittable, writer: &mut impl Write) -> io::Result<()> {
         self.initialise();
 
-        let mut ppm_string = format!("P3\n{} {}\n255\n", self.image_width, self.image_height);
+        let header = format!("P3\n{} {}\n255\n", self.image_width, self.image_height);
+        writer.write_all(header.as_bytes())?;
 
         for j in 0..self.image_height {
             eprintln!("Scanlines remaining: {}", self.image_height - j);
@@ -59,12 +62,13 @@ impl Camera {
                     pixel_color += ray_color(&r, self.max_depth, world);
                 }
 
-                ppm_string += color_to_string(&(self.pixel_samples_scale * pixel_color)).as_str();
+                let pixel = color_to_string(&(self.pixel_samples_scale * pixel_color));
+                writer.write_all(pixel.as_bytes())?;
             }
         }
 
         eprintln!("Done.");
-        println!("{ppm_string}");
+        Ok(())
     }
 
     fn initialise(&mut self) {

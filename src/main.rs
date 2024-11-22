@@ -2,6 +2,8 @@ use crate::camera::Camera;
 use crate::vec3::{Point3, Vec3};
 use clap::Parser;
 use std::fs::File;
+use std::io::Write;
+use crate::rtweekend::get_output_filename;
 
 mod vec3;
 mod color;
@@ -25,10 +27,11 @@ fn main() {
     // Parse CLI arguments
     let args = Cli::parse();
 
-    let world = if let Some(filename) = args.filename {
+    let (world, filename) = if let Some(filename) = args.filename {
         // Deserialize the object
-        let file = File::open(filename).expect("Could not open file");
-        serde_json::from_reader(&file).expect("Could not read file")
+        let file = File::open(&filename).expect("Could not open scene file");
+        let world = serde_json::from_reader(&file).expect("Could not read scene file");
+        (world, filename)
     } else {
         // let (world, filename) = scenes::weekend_final();
         // let (world, filename) = scenes::weekend_custom(2, 0.9, 0.05);
@@ -40,11 +43,11 @@ fn main() {
 
         // Serialize the world
         let filename = format!("scenes/{filename}.json");
-        let file = File::create(&filename).expect("Could not open file");
-        serde_json::to_writer(&file, &world).expect("Could not write to file");
+        let file = File::create(&filename).expect("Could not open scene file");
+        serde_json::to_writer(&file, &world).expect("Could not write to scene file");
         eprintln!("Wrote scene to {filename}");
         // Return world
-        world
+        (world, filename)
     };
 
 
@@ -61,7 +64,14 @@ fn main() {
 
     cam.defocus_angle = 0.6;
     cam.focus_dist = 10.0;
+    
+    // Open file
+    let filename = get_output_filename(&filename)
+        .expect("Could not parse filename");
+    let mut file = File::create(&filename)
+        .expect("Could not open image file");
 
-    cam.render(&world);
+    cam.render(&world, &mut file)
+        .expect("Could not write to image file");
 }
 
