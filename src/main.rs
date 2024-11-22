@@ -1,14 +1,7 @@
-use std::fs::File;
 use crate::camera::Camera;
-use crate::color::Color;
-use crate::hittable_list::HittableList;
-use crate::material::{Dielectric, Lambertian, Material, Metal};
-use crate::sphere::Sphere;
 use crate::vec3::{Point3, Vec3};
-use std::rc::Rc;
 use clap::Parser;
-use crate::hittable::Hittable;
-use crate::rtweekend::{random_double, random_double_range};
+use std::fs::File;
 
 mod vec3;
 mod color;
@@ -20,35 +13,38 @@ mod rtweekend;
 mod interval;
 mod camera;
 mod material;
+mod scenes;
 
 #[derive(Parser)]
 struct Cli {
-    /// The input / output file for the scene / world
-    filename: String,
-    /// Whether to generate a scene file
-    #[arg(long, short, default_value_t = false)]
-    write: bool,
+    /// The world / scene file
+    filename: Option<String>,
 }
 
 fn main() {
     // Parse CLI arguments
     let args = Cli::parse();
 
-    let world = if args.write {
-        let mut world = HittableList::default();
-        let ground_material = Rc::new(Lambertian::new(Color::new(0.5, 0.5, 0.5)));
-        world.add(Rc::new(Sphere::new(Point3::new(0.0, -1000.0, 0.0), 1000.0, ground_material)));
-        // Specify more elements of the scene here
+    let world = if let Some(filename) = args.filename {
+        // Deserialize the object
+        let file = File::open(filename).expect("Could not open file");
+        serde_json::from_reader(&file).expect("Could not read file")
+    } else {
+        // let (world, filename) = scenes::weekend_final();
+        // let (world, filename) = scenes::weekend_custom(2, 0.9, 0.05);
+        // let (world, filename) = scenes::weekend_custom(1, 0.5, 0.25);
+        // let (world, filename) = scenes::weekend_custom(5, 0.8, 0.15);
+        // let (world, filename) = scenes::simple_hollow_glass();
+        // let (world, filename) = scenes::simple_shiny_metal();
+        let (world, filename) = scenes::simple_fuzzy_metal();
 
         // Serialize the world
-        let file = File::create(args.filename).expect("Could not open file");
+        let filename = format!("scenes/{filename}.json");
+        let file = File::create(&filename).expect("Could not open file");
         serde_json::to_writer(&file, &world).expect("Could not write to file");
-
+        eprintln!("Wrote scene to {filename}");
+        // Return world
         world
-    } else {
-        // Deserialize the object
-        let file = File::open(args.filename).expect("Could not open file");
-        serde_json::from_reader(&file).expect("Could not read file")
     };
 
 
