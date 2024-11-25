@@ -4,6 +4,7 @@ use crate::hittable_list::HittableList;
 use crate::material::{Dielectric, Lambertian, Metal};
 use crate::rtweekend::{random_double, random_double_range};
 use crate::sphere::Sphere;
+use crate::triangle::Triangle;
 use crate::vec3::Point3;
 
 #[allow(dead_code)]
@@ -112,4 +113,55 @@ pub fn simple_fuzzy_metal() -> (HittableList, String) {
     world.add(Rc::new(Sphere::new(Point3::new(1.0, 0.0, -1.0), 0.5, material_right)));
 
     (world, "simple_fuzzy_metal".to_string())
+}
+
+#[allow(dead_code)]
+pub fn simple_triangle() -> (HittableList, String) {
+    let mut world = HittableList::default();
+    let material_ground = Rc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0)));
+    let material_blue = Rc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5)));
+    let material_red = Rc::new(Lambertian::new(Color::new(0.9, 0.2, 0.2)));
+
+    world.add(Rc::new(Sphere::new(Point3::new(0.0, -100.5, -1.0), 100.0, material_ground)));
+    let a = Point3::new(3.0, 0.0, -2.2);
+    let b = Point3::new(-3.0, 0.0, -2.0);
+    let c = Point3::new(1.0, 1.5, -1.9);
+    world.add(Rc::new(Sphere::new(a, 0.1, material_red.clone())));
+    world.add(Rc::new(Sphere::new(b, 0.1, material_red.clone())));
+    world.add(Rc::new(Sphere::new(c, 0.1, material_red.clone())));
+    world.add(Rc::new(Triangle::new(a, b, c, material_blue)));
+
+    (world, "simple_triangle".to_string())
+}
+
+#[allow(dead_code)]
+pub fn triangle_materials() -> (HittableList, String) {
+    let mut world = HittableList::default();
+    let material_ground = Rc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0)));
+    let material_red = Rc::new(Lambertian::new(Color::new(0.8, 0.2, 0.1)));
+    let material_blue = Rc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5)));
+    let material_metal = Rc::new(Metal::new(Color::new(0.8, 0.8, 0.8), 1.0));
+    let material_glass = Rc::new(Dielectric::new(1.5));
+
+    world.add(Rc::new(Sphere::new(Point3::new(0.0, -100.5, -1.0), 100.0, material_ground)));
+
+    let a = Point3::new(-1.0, 0.0, -2.2);
+    let b = Point3::new(-3.0, 0.0, -2.0);
+    let c = Point3::new(-2.0, 1.5, -1.9);
+    world.add(Rc::new(Triangle::new(a, b, c, material_blue.clone())));
+
+    let a = Point3::new(1.0, 0.0, -1.8);
+    let b = Point3::new(-1.0, 0.0, -2.5);
+    let c = Point3::new(0.0, 0.8, -1.0);
+    world.add(Rc::new(Triangle::new(a, b, c, material_metal)));
+
+    let a = Point3::new(3.0, 0.0, -1.8);
+    let b = Point3::new(2.0, 0.0, -2.5);
+    let c = Point3::new(1.0, 0.8, -1.0);
+    world.add(Rc::new(Triangle::new(a, b, c, material_glass)));
+    
+    world.add(Rc::new(Sphere::new(Point3::new(1.0, 0.0, -1.5), 0.5, material_blue)));
+    world.add(Rc::new(Sphere::new(Point3::new(1.8, 1.0, -2.0), 0.5, material_red)));
+
+    (world, "triangle_materials".to_string())
 }

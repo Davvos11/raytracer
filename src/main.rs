@@ -16,6 +16,7 @@ mod interval;
 mod camera;
 mod material;
 mod scenes;
+mod triangle;
 
 #[derive(Parser)]
 struct Cli {
@@ -39,7 +40,9 @@ fn main() {
         // let (world, filename) = scenes::weekend_custom(5, 0.8, 0.15);
         // let (world, filename) = scenes::simple_hollow_glass();
         // let (world, filename) = scenes::simple_shiny_metal();
-        let (world, filename) = scenes::simple_fuzzy_metal();
+        // let (world, filename) = scenes::simple_fuzzy_metal();
+        // let (world, filename) = scenes::simple_triangle();
+        let (world, filename) = scenes::triangle_materials();
 
         // Serialize the world
         let filename = format!("scenes/{filename}.json");
@@ -57,13 +60,13 @@ fn main() {
     cam.samples_per_pixel = 50;
     cam.max_depth = 50;
 
-    cam.vfov = 20.0;
-    cam.look_from = Point3::new(13.0, 2.0, 3.0);
-    cam.look_at = Point3::new(0.0, 0.0, 0.0);
+    cam.vfov = 90.0;
+    cam.look_from = Point3::new(0.0, 0.0, 0.0);
+    cam.look_at = Point3::new(0.0, 0.0, -1.0);
     cam.v_up = Vec3::new(0.0, 1.0, 0.0);
 
-    cam.defocus_angle = 0.6;
-    cam.focus_dist = 10.0;
+    cam.defocus_angle = 0.1;
+    cam.focus_dist = 1.0;
     
     // Open file
     let filename = get_output_filename(&filename)
