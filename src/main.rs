@@ -2,8 +2,8 @@ use crate::camera::Camera;
 use crate::vec3::{Point3, Vec3};
 use clap::Parser;
 use std::fs::File;
-use std::io::Write;
-use crate::rtweekend::get_output_filename;
+use std::time::Instant;
+use crate::rtweekend::{get_output_filename, IntersectionAlgorithm};
 
 mod vec3;
 mod color;
@@ -22,6 +22,9 @@ mod triangle;
 struct Cli {
     /// The world / scene file
     filename: Option<String>,
+    #[arg(long, default_value_t = IntersectionAlgorithm::default())]
+    /// The intersection algorithm
+    algorithm: IntersectionAlgorithm
 }
 
 fn main() {
@@ -74,8 +77,9 @@ fn main() {
     let mut file = File::create(&filename)
         .expect("Could not open image file");
 
+    let start = Instant::now();
     cam.render(&world, &mut file)
         .expect("Could not write to image file");
-    eprintln!("Wrote image to {filename}")
+    eprintln!("Wrote image to {filename}. Duration {:3.2?}", start.elapsed());
 }
 

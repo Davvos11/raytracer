@@ -1,12 +1,14 @@
+use crate::camera::naive::ray_color_naive;
+use crate::color::{color_to_string, Color};
+use crate::hittable::Hittable;
+use crate::ray::Ray;
+use crate::rtweekend::{degrees_to_radians, random_double, IntersectionAlgorithm};
+use crate::vec3::{Point3, Vec3};
+use indicatif::{ProgressBar, ProgressStyle};
 use std::io;
 use std::io::Write;
-use indicatif::{ProgressBar, ProgressStyle};
-use crate::color::{color_to_string, Color};
-use crate::hittable::{HitRecord, Hittable};
-use crate::interval::Interval;
-use crate::ray::Ray;
-use crate::rtweekend::{degrees_to_radians, random_double};
-use crate::vec3::{Point3, Vec3};
+
+mod naive;
 
 #[derive(Default)]
 pub struct Camera {
@@ -20,6 +22,7 @@ pub struct Camera {
     pub v_up: Vec3,
     pub defocus_angle: f64,
     pub focus_dist: f64,
+    pub algorithm: IntersectionAlgorithm,
     image_height: u32,
     pixel_samples_scale: f64,
     center: Point3,
@@ -66,7 +69,7 @@ impl Camera {
                 let mut pixel_color = Color::default();
                 for _ in 0..self.samples_per_pixel {
                     let r = self.get_ray(i, j);
-                    pixel_color += ray_color(&r, self.max_depth, world);
+                    pixel_color += ray_color(&r, self.max_depth, world, &self.algorithm);
                 }
 
                 let pixel = color_to_string(&(self.pixel_samples_scale * pixel_color));
@@ -140,30 +143,13 @@ impl Camera {
     }
 }
 
-fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable) -> Color {
-    // Stop gathering light if the ray bounce limit is exceeded
-    if depth == 0 {
-        return Color::default();
-    }
 
-    let mut rec = HitRecord::default();
-
-    if world.hit(r, Interval::new(0.001, f64::INFINITY), &mut rec) {
-        let mut scattered = Ray::default();
-        let mut attenuation = Color::default();
-        if let Some(mat) = &rec.mat {
-            if mat.scatter(r, &rec, &mut attenuation, &mut scattered) {
-                return attenuation * ray_color(&scattered, depth - 1, world);
-            }
-        }
-
-        Color::default()
-    } else {
-        let unit_direction = r.direction().unit();
-        let a = 0.5 * (unit_direction.y() + 1.0);
-        (1.0 - a) * Color::new(1.0, 1.0, 1.0) + a * Color::new(0.5, 0.7, 1.0)
+fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, algorithm: &IntersectionAlgorithm) -> Color {
+    match algorithm {
+        IntersectionAlgorithm::Naive => { ray_color_naive(r, depth, world) }
     }
 }
+
 
 /// Returns the vector to a random point in the [-.5,-.5]-[+.5,+.5] unit square.
 fn sample_square() -> Vec3 {

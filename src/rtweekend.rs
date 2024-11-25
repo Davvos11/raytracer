@@ -1,5 +1,21 @@
+use std::fmt::{Display, Formatter};
 use std::path::Path;
+use clap::ValueEnum;
 use rand::Rng;
+
+#[derive(Default, Clone, ValueEnum)]
+pub enum IntersectionAlgorithm {
+    #[default]
+    Naive
+}
+
+impl Display for IntersectionAlgorithm {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IntersectionAlgorithm::Naive => {write!(f, "naive")}
+        }
+    }
+}
 
 pub fn degrees_to_radians(degrees: f64) -> f64 {
     degrees * std::f64::consts::PI / 180.0
