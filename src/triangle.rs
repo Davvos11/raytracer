@@ -5,6 +5,7 @@ use crate::ray::Ray;
 use crate::vec3::Point3;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
+use crate::acceleration::bvh::AABB;
 
 #[derive(Serialize, Deserialize)]
 pub struct Triangle {
@@ -18,6 +19,10 @@ impl Triangle {
     pub fn new(v0: Point3, v1: Point3, v2: Point3, mat: Rc<dyn Material>) -> Self {
         Self { v0, v1, v2, mat }
     }
+
+    pub fn a(&self) -> Point3 { self.v0 }
+    pub fn b(&self) -> Point3 { self.v1 }
+    pub fn c(&self) -> Point3 { self.v2 }
 }
 
 #[typetag::serde]
@@ -38,7 +43,7 @@ impl Hittable for Triangle {
         let d = -n.dot(&self.v0);
         // Get the distance along the ray
         rec.t = -(n.dot(r.origin()) + d) / n_dot_dir;
-        
+
         // The triangle is not visible if it is behind the camera
         if rec.t < 0.0 {
             return false;
@@ -66,5 +71,16 @@ impl Hittable for Triangle {
         rec.mat = Some(Rc::clone(&self.mat));
 
         true
+    }
+
+    fn to_aabb(&self) -> AABB {
+        let x_min = self.a().x().min(self.b().x()).min(self.c().x());
+        let y_min = self.a().y().min(self.b().y()).min(self.c().y());
+        let z_min = self.a().z().min(self.b().z()).min(self.c().z());
+        let x_max = self.a().x().max(self.b().x()).max(self.c().x());
+        let y_max = self.a().y().max(self.b().y()).max(self.c().y());
+        let z_max = self.a().z().max(self.b().z()).max(self.c().z());
+
+        AABB::new(Point3::new(x_min, y_min, z_min), Point3::new(x_max, y_max, z_max))
     }
 }

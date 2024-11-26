@@ -6,13 +6,15 @@ use rand::Rng;
 #[derive(Default, Clone, ValueEnum)]
 pub enum IntersectionAlgorithm {
     #[default]
-    Naive
+    Naive,
+    BVH
 }
 
 impl Display for IntersectionAlgorithm {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             IntersectionAlgorithm::Naive => {write!(f, "naive")}
+            IntersectionAlgorithm::BVH => {write!(f, "bvh")}
         }
     }
 }

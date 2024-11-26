@@ -17,6 +17,7 @@ mod camera;
 mod material;
 mod scenes;
 mod triangle;
+mod acceleration;
 
 #[derive(Parser)]
 struct Cli {
@@ -31,7 +32,7 @@ fn main() {
     // Parse CLI arguments
     let args = Cli::parse();
 
-    let (world, filename) = if let Some(filename) = args.filename {
+    let (mut world, filename) = if let Some(filename) = args.filename {
         // Deserialize the object
         let file = File::open(&filename).expect("Could not open scene file");
         let world = serde_json::from_reader(&file).expect("Could not read scene file");
@@ -56,6 +57,7 @@ fn main() {
         (world, filename)
     };
 
+    world.algorithm = args.algorithm;
 
     let mut cam = Camera::new();
     cam.aspect_ratio = 16.0 / 9.0;
