@@ -3,6 +3,7 @@ use crate::vec3::{Point3, Vec3};
 use clap::Parser;
 use std::fs::File;
 use std::time::Instant;
+use crate::data::Data;
 use crate::rtweekend::{get_output_filename, IntersectionAlgorithm};
 
 mod vec3;
@@ -17,6 +18,7 @@ mod camera;
 mod material;
 mod scenes;
 mod triangle;
+mod data;
 
 #[derive(Parser)]
 struct Cli {
@@ -77,9 +79,16 @@ fn main() {
     let mut file = File::create(&filename)
         .expect("Could not open image file");
 
+    let mut data: Data = Data::new();
+
     let start = Instant::now();
-    cam.render(&world, &mut file)
+    cam.render(&world, &mut file, &mut data)
         .expect("Could not write to image file");
     eprintln!("Wrote image to {filename}. Duration {:3.2?}", start.elapsed());
+    data.set_seconds(start.elapsed().as_secs_f64());
+    println!("Total primary rays: {}", data.primary_rays());
+    println!("Total scatter rays: {}", data.scatter_rays());
+    println!("Total intersection checks: {}", data.intersection_checks());
+    println!("Total seconds: {}", data.seconds());
 }
 

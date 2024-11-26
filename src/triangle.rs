@@ -5,6 +5,7 @@ use crate::ray::Ray;
 use crate::vec3::Point3;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
+use crate::data::Data;
 
 #[derive(Serialize, Deserialize)]
 pub struct Triangle {
@@ -22,7 +23,7 @@ impl Triangle {
 
 #[typetag::serde]
 impl Hittable for Triangle {
-    fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
+    fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord, _data: &mut Data) -> bool {
         // Calculate the normal by the cross product of AB and AC
         let v0v1 = self.v1 - self.v0; // AB
         let v0v2 = self.v2 - self.v0; // AC

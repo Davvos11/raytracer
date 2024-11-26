@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use crate::data::Data;
 use crate::interval::Interval;
 use crate::material::Material;
 use crate::ray::Ray;
@@ -24,5 +25,5 @@ impl HitRecord {
 
 #[typetag::serde(tag = "type")]
 pub trait Hittable {
-    fn hit(&self, r: &Ray, ray_t: Interval, hit_record: &mut HitRecord) -> bool;
+    fn hit(&self, r: &Ray, ray_t: Interval, hit_record: &mut HitRecord, data: &mut Data) -> bool;
 }

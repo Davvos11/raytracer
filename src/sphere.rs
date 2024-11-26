@@ -5,6 +5,7 @@ use crate::ray::Ray;
 use crate::vec3::Vec3;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
+use crate::data::Data;
 
 #[derive(Serialize, Deserialize)]
 pub struct Sphere {
@@ -21,7 +22,7 @@ impl Sphere {
 
 #[typetag::serde]
 impl Hittable for Sphere {
-    fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
+    fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord, _data: &mut Data) -> bool {
         let oc = self.center - *r.origin();
         let a = r.direction().length_squared();
         let h = r.direction().dot(&oc);

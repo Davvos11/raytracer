@@ -7,6 +7,7 @@ use crate::vec3::{Point3, Vec3};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::io;
 use std::io::Write;
+use crate::data::Data;
 
 mod naive;
 
@@ -51,7 +52,7 @@ impl Camera {
         }
     }
 
-    pub fn render(&mut self, world: &dyn Hittable, writer: &mut impl Write) -> io::Result<()> {
+    pub fn render(&mut self, world: &dyn Hittable, writer: &mut impl Write, data: &mut Data) -> io::Result<()> {
         self.initialise();
 
         // Display progress bar
@@ -68,8 +69,9 @@ impl Camera {
             for i in 0..self.image_width {
                 let mut pixel_color = Color::default();
                 for _ in 0..self.samples_per_pixel {
+                    data.add_primary_ray();
                     let r = self.get_ray(i, j);
-                    pixel_color += ray_color(&r, self.max_depth, world, &self.algorithm);
+                    pixel_color += ray_color(&r, self.max_depth, world, &self.algorithm, data);
                 }
 
                 let pixel = color_to_string(&(self.pixel_samples_scale * pixel_color));
@@ -144,9 +146,9 @@ impl Camera {
 }
 
 
-fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, algorithm: &IntersectionAlgorithm) -> Color {
+fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, algorithm: &IntersectionAlgorithm, data: &mut Data) -> Color {
     match algorithm {
-        IntersectionAlgorithm::Naive => { ray_color_naive(r, depth, world) }
+        IntersectionAlgorithm::Naive => { ray_color_naive(r, depth, world, data) }
     }
 }
 
