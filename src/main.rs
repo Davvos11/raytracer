@@ -19,6 +19,9 @@ mod material;
 mod scenes;
 mod triangle;
 mod data;
+mod grid;
+mod intbox;
+mod intpoint;
 
 #[derive(Parser)]
 struct Cli {
