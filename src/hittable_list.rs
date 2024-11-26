@@ -3,8 +3,7 @@ use crate::interval::Interval;
 use crate::ray::Ray;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
-use crate::acceleration::bvh::AABB;
-use crate::rtweekend::IntersectionAlgorithm;
+use crate::acceleration::aabb::AABB;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct HittableList {

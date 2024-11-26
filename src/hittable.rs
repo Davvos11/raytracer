@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use crate::acceleration::bvh::AABB;
+use crate::acceleration::aabb::AABB;
 use crate::interval::Interval;
 use crate::material::Material;
 use crate::ray::Ray;

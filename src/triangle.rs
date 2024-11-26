@@ -5,7 +5,7 @@ use crate::ray::Ray;
 use crate::vec3::Point3;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
-use crate::acceleration::bvh::AABB;
+use crate::acceleration::aabb::AABB;
 
 #[derive(Serialize, Deserialize)]
 pub struct Triangle {
