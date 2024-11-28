@@ -1,6 +1,8 @@
+use crate::acceleration::bvh::{Bvh};
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::ray::Ray;
+use crate::rtweekend::IntersectionAlgorithm;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 use crate::acceleration::aabb::AABB;
@@ -42,25 +44,34 @@ impl Hittable for HittableList {
                 }
             }
             IntersectionAlgorithm::BVH => {
-                todo!()
+                // TODO maybe without cloning?
+                let bvh = Bvh::new(self.objects.clone());
+                let bvh_b = bvh.borrow();
+                if let Some(root) = bvh_b.root() {
+                    if root.hit(r, Interval::new(ray_t.min, closest_so_far), &bvh_b, &mut temp_rec) {
+                        hit_anything = true;
+                        *rec = temp_rec.clone();
+                    }
+                }
             }
         }
 
         hit_anything
     }
 
-    /// This function is not very performant and mainly exists to
-    /// satisfy the Trait implementation.
-    /// TODO: maybe we can use Into<AABB> as a separate trait instead
     fn to_aabb(&self) -> AABB {
-        if let Some(first) = self.objects.first() {
-            // Combine all AABBs by folding over the + implementation
-            self.objects[1..].iter()
-                .fold(first.to_aabb(),
-                      |aabb, object| { aabb + object.to_aabb() },
-                )
-        } else {
-            AABB::default()
-        }
+        objects_to_aabb(&self.objects)
+    }
+}
+
+pub fn objects_to_aabb(objects: &[Rc<dyn Hittable>]) -> AABB {
+    if let Some(first) = objects.first() {
+        // Combine all AABBs by folding over the + implementation
+        objects[1..].iter()
+            .fold(first.to_aabb(),
+                  |aabb, object| { aabb + object.to_aabb() },
+            )
+    } else {
+        AABB::default()
     }
 }

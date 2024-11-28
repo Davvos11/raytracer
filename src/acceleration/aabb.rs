@@ -1,7 +1,9 @@
 use std::ops::Add;
+use crate::interval::Interval;
 use crate::ray::Ray;
 use crate::vec3::Point3;
 
+/// BVH and AABB from course slides
 #[derive(Default, Clone)]
 pub struct AABB {
     pub min: Point3,
@@ -13,8 +15,39 @@ impl AABB {
         Self { min, max }
     }
 
-    pub fn inside(&self, ray: &Ray) -> bool {
-        todo!()
+    fn axis_interval(&self, axis: u32) -> Interval {
+        // TODO maybe we assume this at construction?
+        if self.min[axis] <= self.max[axis] {
+            Interval::new(self.min[axis], self.max[axis])
+        } else {
+            Interval::new(self.max[axis], self.min[axis])
+        }
+    }
+
+    /// From https://raytracing.github.io/books/RayTracingTheNextWeek.html#boundingvolumehierarchies/rayintersectionwithanaabb
+    pub fn hit(&self, ray: &Ray, ray_t: Interval) -> bool {
+        // Make a copy for local use
+        let mut ray_t = ray_t;
+        for axis in 0..3 {
+            let ax = self.axis_interval(axis);
+            let ad_inverse = 1.0 / ray.direction()[axis];
+            
+            let t0 = (ax.min - ray.origin()[axis]) * ad_inverse;
+            let t1 = (ax.max - ray.origin()[axis]) * ad_inverse;
+            
+            if t0 < t1 { 
+                if t0 > ray_t.min { ray_t.min = t0; }
+                if t1 < ray_t.max { ray_t.max = t1; }
+            } else {
+                if t1 > ray_t.min { ray_t.min = t1; }
+                if t0 < ray_t.max { ray_t.max = t0; } 
+            }
+            
+            // If the interval is now empty, we missed the AABB on this axis
+            if ray_t.max <= ray_t.min { return false; }
+        }
+
+        true
     }
 }
 
