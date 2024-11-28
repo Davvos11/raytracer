@@ -1,10 +1,9 @@
 use crate::acceleration::aabb::AABB;
 use crate::hittable::{HitRecord, Hittable};
 use crate::hittable_list::objects_to_aabb;
-use std::cell::RefCell;
-use std::rc::Rc;
 use crate::interval::Interval;
 use crate::ray::Ray;
+use std::rc::Rc;
 
 /// BVH and AABB from course slides
 pub struct Bvh {
@@ -14,14 +13,14 @@ pub struct Bvh {
 }
 
 impl Bvh {
-    pub fn new(objects: Vec<Rc<dyn Hittable>>) -> Rc<RefCell<Self>> {
+    pub fn new(objects: Vec<Rc<dyn Hittable>>) -> Self {
         let nodes = vec![BvhNode::default(); objects.len() * 2 - 1];
-        let result = Self { objects, nodes, node_pointer: 0 };
-        let rc = Rc::new(RefCell::new(result));
-        let mut root = BvhNode::new_leaf(AABB::default(), 0, rc.borrow().objects.len());
-        root.sub_divide(Rc::clone(&rc));
-        rc.borrow_mut().nodes[0] = root;
-        rc
+        let mut result = Self { objects, nodes, node_pointer: 0 };
+        // let rc = Rc::new(RefCell::new(result));
+        let mut root = BvhNode::new_leaf(AABB::default(), 0, result.objects.len());
+        root.sub_divide(&mut result);
+        result.nodes[0] = root;
+        result
     }
 
     pub fn root(&self) -> Option<&BvhNode> {
@@ -74,11 +73,11 @@ impl BvhNode {
         &bvh.nodes[self.right]
     }
 
-    pub fn sub_divide(&mut self, bvh: Rc<RefCell<Bvh>>) {
+    pub fn sub_divide(&mut self, bvh: &mut Bvh) {
         assert!(self.is_leaf, "We assume that nodes start out as leaves and are then subdivided");
         let split = {
-            let mut bvh_b = bvh.borrow_mut();
-            let objects = self.objects_mut(&mut bvh_b);
+            // let mut bvh_b = bvh.borrow_mut();
+            let objects = self.objects_mut(bvh);
 
             if objects.len() < 3 {
                 // Set / keep as leaf
@@ -93,23 +92,25 @@ impl BvhNode {
                 let b = b.to_aabb().min.x();
                 f64::total_cmp(&a, &b)
             });
-            let split = objects.len() / 2;
-            split
+            // Return split index in this block
+            // We use this block so `objects` goes out of scope since it has a
+            // mutable borrow on bvh and we want to have a new mutable borrow in `sub_divide`
+            objects.len() / 2
         };
 
-        self.left = bvh.borrow().node_pointer + 1;
-        self.right = bvh.borrow().node_pointer + 2;
-        bvh.borrow_mut().node_pointer += 2;
+        self.left = bvh.node_pointer + 1;
+        self.right = bvh.node_pointer + 2;
+        bvh.node_pointer += 2;
 
         let mut left_node = BvhNode::new_leaf(AABB::default(), self.first, split);
-        left_node.sub_divide(Rc::clone(&bvh));
+        left_node.sub_divide(bvh);
         self.aabb = left_node.aabb.clone();
-        bvh.borrow_mut().nodes[self.left] = left_node;
+        bvh.nodes[self.left] = left_node;
 
         let mut right_node = BvhNode::new_leaf(AABB::default(), self.first + split, self.count - split);
-        right_node.sub_divide(Rc::clone(&bvh));
+        right_node.sub_divide(bvh);
         self.aabb = &self.aabb + &right_node.aabb.clone();
-        bvh.borrow_mut().nodes[self.right] = right_node;
+        bvh.nodes[self.right] = right_node;
 
         self.is_leaf = false;
     }

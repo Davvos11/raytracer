@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use crate::acceleration::bvh::{Bvh};
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
@@ -12,11 +13,22 @@ pub struct HittableList {
     pub objects: Vec<Rc<dyn Hittable>>,
     #[serde(skip)]
     pub algorithm: IntersectionAlgorithm,
+    #[serde(skip)]
+    bvh: Option<Bvh>,
 }
 
 impl HittableList {
     pub fn new(object: Rc<dyn Hittable>) -> Self {
-        Self { objects: vec![object], algorithm: Default::default() }
+        Self { objects: vec![object], algorithm: Default::default(), bvh: None }
+    }
+    
+    pub fn init(&mut self) {
+        match self.algorithm {
+            IntersectionAlgorithm::BVH => {
+                self.bvh = Some(Bvh::new(self.objects.clone()));
+            }
+            _ => {}
+        }
     }
 
     pub fn clear(&mut self) { self.objects.clear(); }
@@ -44,14 +56,15 @@ impl Hittable for HittableList {
                 }
             }
             IntersectionAlgorithm::BVH => {
-                // TODO maybe without cloning?
-                let bvh = Bvh::new(self.objects.clone());
-                let bvh_b = bvh.borrow();
-                if let Some(root) = bvh_b.root() {
-                    if root.hit(r, Interval::new(ray_t.min, closest_so_far), &bvh_b, &mut temp_rec) {
-                        hit_anything = true;
-                        *rec = temp_rec.clone();
+                if let Some(bvh) = &self.bvh {
+                    if let Some(root) = bvh.root() {
+                        if root.hit(r, Interval::new(ray_t.min, closest_so_far), bvh, &mut temp_rec) {
+                            hit_anything = true;
+                            *rec = temp_rec.clone();
+                        }
                     }
+                } else { 
+                    panic!("Please run HittableList.init() first")
                 }
             }
         }

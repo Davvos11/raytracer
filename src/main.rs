@@ -65,9 +65,16 @@ fn main() {
     cam.samples_per_pixel = 50;
     cam.max_depth = 50;
 
-    cam.vfov = 90.0;
-    cam.look_from = Point3::new(0.0, 0.0, 0.0);
-    cam.look_at = Point3::new(0.0, 0.0, -1.0);
+    // TODO this is very hacky, encode this in the json files
+    if filename.starts_with("scenes/weekend") {
+        cam.vfov = 20.0;
+        cam.look_from = Point3::new(13.0, 2.0, 3.0);
+        cam.look_at = Point3::new(0.0, 0.0, 0.0);
+    } else {
+        cam.vfov = 90.0;
+        cam.look_from = Point3::new(0.0, 0.0, 0.0);
+        cam.look_at = Point3::new(0.0, 0.0, -1.0);
+    }
     cam.v_up = Vec3::new(0.0, 1.0, 0.0);
 
     cam.defocus_angle = 0.1;
@@ -80,6 +87,9 @@ fn main() {
         .expect("Could not open image file");
 
     let start = Instant::now();
+    // Initialise structures like BVH
+    world.init();
+    // Render pixels
     cam.render(&world, &mut file)
         .expect("Could not write to image file");
     eprintln!("Wrote image to {filename}. Duration {:3.2?}", start.elapsed());
