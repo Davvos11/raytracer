@@ -4,6 +4,7 @@ use crate::hittable_list::objects_to_aabb;
 use crate::interval::Interval;
 use crate::ray::Ray;
 use std::rc::Rc;
+use crate::data::Data;
 
 /// BVH and AABB from course slides
 pub struct Bvh {
@@ -115,7 +116,8 @@ impl BvhNode {
         self.is_leaf = false;
     }
 
-    pub fn hit(&self, r: &Ray, ray_t: Interval, bvh: &Bvh, rec: &mut HitRecord) -> bool {
+    pub fn hit(&self, r: &Ray, ray_t: Interval, bvh: &Bvh, rec: &mut HitRecord, data: &mut Data) -> bool {
+        data.add_intersection_check();
         if !self.aabb.hit(r, ray_t) {
             return false;
         }
@@ -125,7 +127,8 @@ impl BvhNode {
 
         if self.is_leaf {
             for object in self.objects(bvh) {
-                if object.hit(r, Interval::new(ray_t.min, closest_so_far), rec) {
+                data.add_intersection_check();
+                if object.hit(r, Interval::new(ray_t.min, closest_so_far), rec, data) {
                     hit_anything = true;
                     closest_so_far = rec.t;
                 }
@@ -133,11 +136,11 @@ impl BvhNode {
             return hit_anything;
         } else {
             // TODO check which tree is closer? Or has the least intersections?
-            if self.left(bvh).hit(r, ray_t, bvh, rec) {
+            if self.left(bvh).hit(r, ray_t, bvh, rec, data) {
                 hit_anything = true;
                 closest_so_far = rec.t;
             }
-            if self.right(bvh).hit(r, Interval::new(ray_t.min, closest_so_far), bvh, rec) {
+            if self.right(bvh).hit(r, Interval::new(ray_t.min, closest_so_far), bvh, rec, data) {
                 hit_anything = true;
             }
         }

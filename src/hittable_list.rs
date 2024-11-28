@@ -49,7 +49,7 @@ impl Hittable for HittableList {
 
                 for object in &self.objects {
                     data.add_intersection_check();
-                    if object.hit(r, Interval::new(ray_t.min, closest_so_far), rec) {
+                    if object.hit(r, Interval::new(ray_t.min, closest_so_far), rec, data) {
                         hit_anything = true;
                         closest_so_far = rec.t;
                     }
