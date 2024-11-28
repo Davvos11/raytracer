@@ -18,6 +18,7 @@ mod camera;
 mod material;
 mod scenes;
 mod triangle;
+mod acceleration;
 mod data;
 mod grid;
 mod intbox;
@@ -36,7 +37,7 @@ fn main() {
     // Parse CLI arguments
     let args = Cli::parse();
 
-    let (world, filename) = if let Some(filename) = args.filename {
+    let (mut world, filename) = if let Some(filename) = args.filename {
         // Deserialize the object
         let file = File::open(&filename).expect("Could not open scene file");
         let world = serde_json::from_reader(&file).expect("Could not read scene file");
@@ -61,6 +62,7 @@ fn main() {
         (world, filename)
     };
 
+    world.algorithm = args.algorithm;
 
     let mut cam = Camera::new();
     cam.aspect_ratio = 16.0 / 9.0;
@@ -68,16 +70,23 @@ fn main() {
     cam.samples_per_pixel = 50;
     cam.max_depth = 50;
 
-    cam.vfov = 90.0;
-    cam.look_from = Point3::new(0.0, 0.0, 0.0);
-    cam.look_at = Point3::new(0.0, 0.0, -1.0);
+    // TODO this is very hacky, encode this in the json files
+    if filename.starts_with("scenes/weekend") {
+        cam.vfov = 20.0;
+        cam.look_from = Point3::new(13.0, 2.0, 3.0);
+        cam.look_at = Point3::new(0.0, 0.0, 0.0);
+    } else {
+        cam.vfov = 90.0;
+        cam.look_from = Point3::new(0.0, 0.0, 0.0);
+        cam.look_at = Point3::new(0.0, 0.0, -1.0);
+    }
     cam.v_up = Vec3::new(0.0, 1.0, 0.0);
 
     cam.defocus_angle = 0.1;
     cam.focus_dist = 1.0;
     
     // Open file
-    let filename = get_output_filename(&filename)
+    let filename = get_output_filename(&filename, &args.algorithm)
         .expect("Could not parse filename");
     let mut file = File::create(&filename)
         .expect("Could not open image file");
@@ -85,6 +94,9 @@ fn main() {
     let mut data: Data = Data::new();
 
     let start = Instant::now();
+    // Initialise structures like BVH
+    world.init();
+    // Render pixels
     cam.render(&world, &mut file, &mut data)
         .expect("Could not write to image file");
     eprintln!("Wrote image to {filename}. Duration {:3.2?}", start.elapsed());
