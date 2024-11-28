@@ -1,12 +1,11 @@
-use std::cell::RefCell;
-use crate::acceleration::bvh::{Bvh};
+use crate::acceleration::aabb::AABB;
+use crate::acceleration::bvh::Bvh;
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::ray::Ray;
 use crate::rtweekend::IntersectionAlgorithm;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
-use crate::acceleration::aabb::AABB;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct HittableList {
@@ -21,7 +20,7 @@ impl HittableList {
     pub fn new(object: Rc<dyn Hittable>) -> Self {
         Self { objects: vec![object], algorithm: Default::default(), bvh: None }
     }
-    
+
     pub fn init(&mut self) {
         match self.algorithm {
             IntersectionAlgorithm::BVH => {
@@ -43,18 +42,15 @@ impl Hittable for HittableList {
     fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
         match self.algorithm {
             IntersectionAlgorithm::Naive => {
-                let mut temp_rec = HitRecord::default();
                 let mut hit_anything = false;
                 let mut closest_so_far = ray_t.max;
 
                 for object in &self.objects {
-                    if object.hit(r, Interval::new(ray_t.min, closest_so_far), &mut temp_rec) {
+                    if object.hit(r, Interval::new(ray_t.min, closest_so_far), rec) {
                         hit_anything = true;
-                        closest_so_far = temp_rec.t;
-                        *rec = temp_rec.clone();
+                        closest_so_far = rec.t;
                     }
                 }
-
 
                 hit_anything
             }
@@ -66,12 +62,11 @@ impl Hittable for HittableList {
                         }
                     }
                     false
-                } else { 
+                } else {
                     panic!("Please run HittableList.init() first")
                 }
             }
         }
-
     }
 
     fn to_aabb(&self) -> AABB {

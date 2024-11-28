@@ -120,29 +120,25 @@ impl BvhNode {
             return false;
         }
 
-        let mut temp_rec = HitRecord::default();
         let mut hit_anything = false;
         let mut closest_so_far = ray_t.max;
-        
+
         if self.is_leaf {
             for object in self.objects(bvh) {
-                if object.hit(r, Interval::new(ray_t.min, closest_so_far), &mut temp_rec) {
+                if object.hit(r, Interval::new(ray_t.min, closest_so_far), rec) {
                     hit_anything = true;
-                    closest_so_far = temp_rec.t;
-                    *rec = temp_rec.clone();
+                    closest_so_far = rec.t;
                 }
             }
             return hit_anything;
         } else {
             // TODO check which tree is closer? Or has the least intersections?
-            if self.left(bvh).hit(r, ray_t, bvh, &mut temp_rec) {
+            if self.left(bvh).hit(r, ray_t, bvh, rec) {
                 hit_anything = true;
-                closest_so_far = temp_rec.t;
-                *rec = temp_rec.clone();
+                closest_so_far = rec.t;
             }
-            if self.right(bvh).hit(r, Interval::new(ray_t.min, closest_so_far), bvh, &mut temp_rec) {
+            if self.right(bvh).hit(r, Interval::new(ray_t.min, closest_so_far), bvh, rec) {
                 hit_anything = true;
-                *rec = temp_rec.clone();
             }
         }
 
