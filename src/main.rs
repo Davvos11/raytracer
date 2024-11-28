@@ -81,7 +81,7 @@ fn main() {
     cam.focus_dist = 1.0;
     
     // Open file
-    let filename = get_output_filename(&filename)
+    let filename = get_output_filename(&filename, &args.algorithm)
         .expect("Could not parse filename");
     let mut file = File::create(&filename)
         .expect("Could not open image file");
