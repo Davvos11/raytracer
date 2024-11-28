@@ -41,12 +41,12 @@ impl HittableList {
 #[typetag::serde]
 impl Hittable for HittableList {
     fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
-        let mut temp_rec = HitRecord::default();
-        let mut hit_anything = false;
-        let mut closest_so_far = ray_t.max;
-
         match self.algorithm {
             IntersectionAlgorithm::Naive => {
+                let mut temp_rec = HitRecord::default();
+                let mut hit_anything = false;
+                let mut closest_so_far = ray_t.max;
+
                 for object in &self.objects {
                     if object.hit(r, Interval::new(ray_t.min, closest_so_far), &mut temp_rec) {
                         hit_anything = true;
@@ -54,22 +54,24 @@ impl Hittable for HittableList {
                         *rec = temp_rec.clone();
                     }
                 }
+
+
+                hit_anything
             }
             IntersectionAlgorithm::BVH => {
                 if let Some(bvh) = &self.bvh {
                     if let Some(root) = bvh.root() {
-                        if root.hit(r, Interval::new(ray_t.min, closest_so_far), bvh, &mut temp_rec) {
-                            hit_anything = true;
-                            *rec = temp_rec.clone();
+                        if root.hit(r, ray_t, bvh, rec) {
+                            return true;
                         }
                     }
+                    false
                 } else { 
                     panic!("Please run HittableList.init() first")
                 }
             }
         }
 
-        hit_anything
     }
 
     fn to_aabb(&self) -> AABB {
