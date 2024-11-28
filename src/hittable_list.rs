@@ -1,5 +1,6 @@
 use crate::acceleration::aabb::AABB;
 use crate::acceleration::bvh::Bvh;
+use crate::data::Data;
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::ray::Ray;
@@ -40,13 +41,14 @@ impl HittableList {
 
 #[typetag::serde]
 impl Hittable for HittableList {
-    fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
+    fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data) -> bool {
         match self.algorithm {
             IntersectionAlgorithm::Naive => {
                 let mut hit_anything = false;
                 let mut closest_so_far = ray_t.max;
 
                 for object in &self.objects {
+                    data.add_intersection_check();
                     if object.hit(r, Interval::new(ray_t.min, closest_so_far), rec) {
                         hit_anything = true;
                         closest_so_far = rec.t;
@@ -58,7 +60,7 @@ impl Hittable for HittableList {
             IntersectionAlgorithm::BVH => {
                 if let Some(bvh) = &self.bvh {
                     if let Some(root) = bvh.root() {
-                        if root.hit(r, ray_t, bvh, rec) {
+                        if root.hit(r, ray_t, bvh, rec, data) {
                             return true;
                         }
                     }
