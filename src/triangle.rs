@@ -13,11 +13,17 @@ pub struct Triangle {
     v1: Point3,
     v2: Point3,
     mat: Rc<dyn Material>,
+    centroid: Point3,
 }
 
 impl Triangle {
     pub fn new(v0: Point3, v1: Point3, v2: Point3, mat: Rc<dyn Material>) -> Self {
-        Self { v0, v1, v2, mat }
+        let centroid = Point3::new(
+            (v0.x() + v1.x() + v2.x()) / 3.0,
+            (v0.y() + v1.y() + v2.y()) / 3.0,
+            (v0.z() + v1.z() + v2.z()) / 3.0,
+        );
+        Self { v0, v1, v2, mat, centroid }
     }
 
     pub fn a(&self) -> Point3 { self.v0 }
@@ -82,5 +88,9 @@ impl Hittable for Triangle {
         let z_max = self.a().z().max(self.b().z()).max(self.c().z());
 
         AABB::new(Point3::new(x_min, y_min, z_min), Point3::new(x_max, y_max, z_max))
+    }
+
+    fn centroid(&self) -> Point3 {
+        self.centroid
     }
 }

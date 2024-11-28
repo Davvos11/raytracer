@@ -88,8 +88,8 @@ impl BvhNode {
             // For now we choose the x-axis always
             // TODO choose axis, also don't calculate full AABB, but use centroid
             objects.sort_by(|a, b| {
-                let a = a.to_aabb().max.x();
-                let b = b.to_aabb().min.x();
+                let a = a.centroid().x();
+                let b = b.centroid().x();
                 f64::total_cmp(&a, &b)
             });
             // Return split index in this block

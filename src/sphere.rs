@@ -1,21 +1,21 @@
+use crate::acceleration::aabb::AABB;
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::material::Material;
 use crate::ray::Ray;
-use crate::vec3::{Point3, Vec3};
+use crate::vec3::Point3;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
-use crate::acceleration::aabb::AABB;
 
 #[derive(Serialize, Deserialize)]
 pub struct Sphere {
-    center: Vec3,
+    center: Point3,
     radius: f64,
     mat: Rc<dyn Material>,
 }
 
 impl Sphere {
-    pub fn new(center: Vec3, radius: f64, mat: Rc<dyn Material>) -> Self {
+    pub fn new(center: Point3, radius: f64, mat: Rc<dyn Material>) -> Self {
         Self { center, radius: f64::max(0.0, radius), mat }
     }
 }
@@ -62,5 +62,9 @@ impl Hittable for Sphere {
         let z_max = self.center.z() + self.radius;
 
         AABB::new(Point3::new(x_min, y_min, z_min), Point3::new(x_max, y_max, z_max))
+    }
+
+    fn centroid(&self) -> Point3 {
+        self.center
     }
 }

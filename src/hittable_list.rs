@@ -6,6 +6,7 @@ use crate::ray::Ray;
 use crate::rtweekend::IntersectionAlgorithm;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
+use crate::vec3::Point3;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct HittableList {
@@ -71,6 +72,16 @@ impl Hittable for HittableList {
 
     fn to_aabb(&self) -> AABB {
         objects_to_aabb(&self.objects)
+    }
+
+    fn centroid(&self) -> Point3 {
+        eprintln!("Warning: HittableList.centroid() is slow");
+        let aabb = self.to_aabb();
+        Point3::new(
+            (aabb.min.x() + aabb.max.x()) / 2.0,
+            (aabb.min.y() + aabb.max.y()) / 2.0,
+            (aabb.min.z() + aabb.max.z()) / 2.0,
+        )
     }
 }
 
