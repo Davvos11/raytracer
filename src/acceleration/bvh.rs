@@ -17,9 +17,9 @@ pub struct Bvh {
 
 impl Bvh {
     pub fn new(objects: Vec<Rc<dyn Hittable>>, options: &[AlgorithmOptions]) -> Self {
-        let nodes = vec![BvhNode::default(); objects.len() * 2 - 1];
+        let nodes = vec![BvhNode::default(); objects.len() * 4];
         let mut result = Self { objects, nodes, node_pointer: 0 };
-        let mut root = BvhNode::new_leaf(0, result.objects.len(), &result.objects);
+        let mut root = BvhNode::new_leaf(0, 0, result.objects.len(), &result.objects);
         root.sub_divide(&mut result, options);
         result.nodes[0] = root;
         result
@@ -59,8 +59,12 @@ impl BvhNode {
         Self { aabb, is_leaf: false, left, right, first: 0, count: 0 }
     }
 
-    pub fn new_leaf(first: usize, count: usize, objects: &[Rc<dyn Hittable>]) -> Self {
-        Self { aabb: objects_to_aabb(objects), is_leaf: true, first, count, left: 0, right: 0 }
+    /// Create a new leaf node
+    /// `first` is relative to the provided `objects` array
+    /// `offset + first` will be the index into the corresponding `Bvh.objects`
+    pub fn new_leaf(first: usize, offset: usize, count: usize, objects: &[Rc<dyn Hittable>]) -> Self {
+        let aabb = objects_to_aabb(&objects[first..(first + count)]);
+        Self { aabb, is_leaf: true, first: offset + first, count, left: 0, right: 0 }
     }
 
     pub fn objects<'a>(&'a self, bvh: &'a Bvh) -> &'a [Rc<dyn Hittable>] {
@@ -82,10 +86,11 @@ impl BvhNode {
         if self.is_leaf { panic!("Cannot get child tree for leaf node") }
         &bvh.nodes[self.right]
     }
-    
+
     fn get_split(&self, objects: &mut [Rc<dyn Hittable>], options: &[AlgorithmOptions]) -> Option<(BvhNode, BvhNode)> {
+        if objects.len() < 3 { return None; }
+        
         if options.contains(&BvhNaive) {
-            if objects.len() < 3 { return None; }
             // Sort objects on this axis
             objects.sort_by(|a, b| {
                 let a = a.centroid().x();
@@ -93,11 +98,11 @@ impl BvhNode {
                 f64::total_cmp(&a, &b)
             });
             let split = self.count / 2;
-            let left_node = BvhNode::new_leaf(self.first, split, objects);
-            let right_node = BvhNode::new_leaf(self.first + split, self.count - split, objects);
+            let left_node = BvhNode::new_leaf(0, self.first, split, objects);
+            let right_node = BvhNode::new_leaf(split, self.first, self.count - split, objects);
             return Some((left_node, right_node));
         }
-        
+
         let current_heuristic = self.aabb.surface_area() as usize * self.count;
         // Check each axis
         for axis in 0..3 {
@@ -107,15 +112,15 @@ impl BvhNode {
                 let b = b.centroid()[axis];
                 f64::total_cmp(&a, &b)
             });
-            
+
             if options.contains(&BvhSahPlane) {
                 let split = self.count / 2;
-                if let result@Some(_) = self.check_split_sah(split, objects, current_heuristic) {
+                if let result @ Some(_) = self.check_split_sah(split, objects, current_heuristic) {
                     return result;
                 }
             } else {
                 for split in 0..objects.len() {
-                    if let result@Some(_) = self.check_split_sah(split, objects, current_heuristic) {
+                    if let result @ Some(_) = self.check_split_sah(split, objects, current_heuristic) {
                         return result;
                     }
                 }
@@ -128,8 +133,8 @@ impl BvhNode {
     /// left.surface_area * left.objects.len() + right.surface_area * right.objects.len()
     ///    is less than self.surface_area * self.objects.len()
     fn check_split_sah(&self, split: usize, objects: &[Rc<dyn Hittable>], current_heuristic: usize) -> Option<(BvhNode, BvhNode)> {
-        let left_node = BvhNode::new_leaf(self.first, split, objects);
-        let right_node = BvhNode::new_leaf(self.first + split, self.count - split, objects);
+        let left_node = BvhNode::new_leaf(0, self.first, split, objects);
+        let right_node = BvhNode::new_leaf(split, self.first, self.count - split, objects);
         let left_heuristic = left_node.aabb.surface_area() as usize * split;
         let right_heuristic = right_node.aabb.surface_area() as usize * (self.count - split);
         if left_heuristic + right_heuristic < current_heuristic {
@@ -150,7 +155,7 @@ impl BvhNode {
 
             left_node.sub_divide(bvh, options);
             bvh.nodes[self.left] = left_node;
-            
+
             right_node.sub_divide(bvh, options);
             bvh.nodes[self.right] = right_node;
 
@@ -159,12 +164,14 @@ impl BvhNode {
         // If no split found, keep this as a leaf.
     }
 
-    pub fn hit(&self, r: &Ray, ray_t: Interval, bvh: &Bvh, rec: &mut HitRecord, data: &mut Data) -> bool {
+    pub fn hit_aabb(&self, r: &Ray, ray_t: Interval, data: &mut Data) -> Option<f64> {
         data.add_intersection_check();
-        if !self.aabb.hit(r, ray_t) {
-            return false;
-        }
+        self.aabb.hit(r, ray_t)
+    }
 
+    pub fn hit(&self, r: &Ray, ray_t: Interval, bvh: &Bvh, rec: &mut HitRecord, data: &mut Data) -> bool {
+        if self.hit_aabb(r, ray_t, data).is_none() { return false }
+        
         let mut hit_anything = false;
         let mut closest_so_far = ray_t.max;
 
@@ -176,7 +183,6 @@ impl BvhNode {
                     closest_so_far = rec.t;
                 }
             }
-            return hit_anything;
         } else {
             // TODO check which tree is closer? Or has the least intersections?
             if self.left(bvh).hit(r, ray_t, bvh, rec, data) {

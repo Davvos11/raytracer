@@ -7,6 +7,7 @@ use crate::ray::Ray;
 use crate::rtweekend::{AlgorithmOptions, IntersectionAlgorithm};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
+use std::time::Instant;
 use crate::vec3::Point3;
 
 #[derive(Default, Serialize, Deserialize)]
@@ -28,7 +29,9 @@ impl HittableList {
     pub fn init(&mut self) {
         match self.algorithm {
             IntersectionAlgorithm::BVH => {
+                let t = Instant::now();
                 self.bvh = Some(Bvh::new(self.objects.clone(), &self.options));
+                eprintln!("BVH constructed in {:3.2?}", t.elapsed())
             }
             _ => {}
         }

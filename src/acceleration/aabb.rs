@@ -20,7 +20,8 @@ impl AABB {
     }
 
     /// From https://raytracing.github.io/books/RayTracingTheNextWeek.html#boundingvolumehierarchies/rayintersectionwithanaabb
-    pub fn hit(&self, ray: &Ray, ray_t: Interval) -> bool {
+    /// With an extension to return the intersection point (on the ray)
+    pub fn hit(&self, ray: &Ray, ray_t: Interval) -> Option<f64> {
         // Make a copy for local use
         let mut ray_t = ray_t;
         for axis in 0..3 {
@@ -39,10 +40,10 @@ impl AABB {
             }
 
             // If the interval is now empty, we missed the AABB on this axis
-            if ray_t.max <= ray_t.min { return false; }
+            if ray_t.max <= ray_t.min { return None; }
         }
 
-        true
+        Some(ray_t.min)
     }
 
     // TODO maybe the 2.0 can be removed since it is only a comparator
