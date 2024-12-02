@@ -1,9 +1,9 @@
 ﻿#[derive(Default)]
 pub struct Data {
     seconds: f64,
-    primary_rays: i32,
-    scatter_rays: i32,
-    intersection_checks: i32
+    primary_rays: usize,
+    scatter_rays: usize,
+    intersection_checks: usize
 }
 
 impl Data {
@@ -19,7 +19,7 @@ impl Data {
         self.seconds = seconds;
     }
 
-    pub fn primary_rays(&self) -> i32 {
+    pub fn primary_rays(&self) -> usize {
         self.primary_rays
     }
 
@@ -27,7 +27,7 @@ impl Data {
         self.primary_rays += 1;
     }
 
-    pub fn scatter_rays(&self) -> i32 {
+    pub fn scatter_rays(&self) -> usize {
         self.scatter_rays
     }
 
@@ -35,7 +35,7 @@ impl Data {
         self.scatter_rays += 1;
     }
 
-    pub fn intersection_checks(&self) -> i32 {
+    pub fn intersection_checks(&self) -> usize {
         self.intersection_checks
     }
 
