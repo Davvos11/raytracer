@@ -6,7 +6,7 @@ use crate::ray::Ray;
 use std::rc::Rc;
 use crate::data::Data;
 use crate::rtweekend::AlgorithmOptions;
-use crate::rtweekend::AlgorithmOptions::BvhNaive;
+use crate::rtweekend::AlgorithmOptions::{BvhNaive, BvhSahPlane};
 
 /// BVH and AABB from course slides
 pub struct Bvh {
@@ -107,20 +107,36 @@ impl BvhNode {
                 let b = b.centroid()[axis];
                 f64::total_cmp(&a, &b)
             });
-            // Surface Area Heuristic: a split if only worth it if:
-            // left.surface_area * left.objects.len() + right.surface_area * right.objects.len()
-            //    is less than self.surface_area * self.objects.len()
-            // TODO is as usize approximation okay?
-            let split = self.count / 2;
-            let mut left_node = BvhNode::new_leaf(self.first, split, objects);
-            let mut right_node = BvhNode::new_leaf(self.first + split, self.count - split, objects);
-            let left_heuristic = left_node.aabb.surface_area() as usize * split;
-            let right_heuristic = right_node.aabb.surface_area() as usize * (self.count - split);
-            if left_heuristic + right_heuristic < current_heuristic {
-                return Some((left_node, right_node));
+            
+            if options.contains(&BvhSahPlane) {
+                let split = self.count / 2;
+                if let result@Some(_) = self.check_split_sah(split, objects, current_heuristic) {
+                    return result;
+                }
+            } else {
+                for split in 0..objects.len() {
+                    if let result@Some(_) = self.check_split_sah(split, objects, current_heuristic) {
+                        return result;
+                    }
+                }
             }
         }
         None
+    }
+
+    /// Surface Area Heuristic: a split if only worth it if:
+    /// left.surface_area * left.objects.len() + right.surface_area * right.objects.len()
+    ///    is less than self.surface_area * self.objects.len()
+    fn check_split_sah(&self, split: usize, objects: &[Rc<dyn Hittable>], current_heuristic: usize) -> Option<(BvhNode, BvhNode)> {
+        let left_node = BvhNode::new_leaf(self.first, split, objects);
+        let right_node = BvhNode::new_leaf(self.first + split, self.count - split, objects);
+        let left_heuristic = left_node.aabb.surface_area() as usize * split;
+        let right_heuristic = right_node.aabb.surface_area() as usize * (self.count - split);
+        if left_heuristic + right_heuristic < current_heuristic {
+            Some((left_node, right_node))
+        } else {
+            None
+        }
     }
 
     pub fn sub_divide(&mut self, bvh: &mut Bvh, options: &[AlgorithmOptions]) {
