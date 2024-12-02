@@ -1,8 +1,10 @@
 use std::rc::Rc;
 use crate::acceleration::aabb::AABB;
 use crate::hittable::Hittable;
+use crate::ray::Ray;
 use crate::vec3::{Point3, Vec3};
 
+// http://www.cse.yorku.ca/~amana/research/grid.pdf used for traversal per ray
 pub struct Grid {
     pub objects: Vec<Rc<dyn Hittable>>,
     pub boxes: Vec<GridBox>,
@@ -57,6 +59,10 @@ impl Grid {
         let sizey = (total_size.y() / box_size.y());
 
         (x as f64 + y as f64 * sizex + z as f64 * sizex * sizey) as usize
+    }
+    
+    pub fn get_ray_enter_grid(&self, ray: Ray) -> &GridBox {
+        &self.boxes[0]
     }
 }
 
