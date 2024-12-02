@@ -44,6 +44,15 @@ impl AABB {
 
         true
     }
+
+    // TODO maybe the 2.0 can be removed since it is only a comparator
+    pub fn surface_area(&self) -> f64 {
+        2.0 * (
+            (self.max.x() - self.min.x()) * (self.max.y() - self.min.y())
+                + (self.max.x() - self.min.x()) * (self.max.z() - self.min.z())
+                + (self.max.y() - self.min.y()) * (self.max.z() - self.min.z())
+        )
+    }
 }
 
 impl Add for AABB {

@@ -17,8 +17,7 @@ impl Bvh {
     pub fn new(objects: Vec<Rc<dyn Hittable>>) -> Self {
         let nodes = vec![BvhNode::default(); objects.len() * 2 - 1];
         let mut result = Self { objects, nodes, node_pointer: 0 };
-        // let rc = Rc::new(RefCell::new(result));
-        let mut root = BvhNode::new_leaf(AABB::default(), 0, result.objects.len());
+        let mut root = BvhNode::new_leaf(0, result.objects.len(), &result.objects);
         root.sub_divide(&mut result);
         result.nodes[0] = root;
         result
@@ -30,6 +29,7 @@ impl Bvh {
 }
 
 #[derive(Clone)]
+// TODO fit this in one cache line?
 pub struct BvhNode {
     pub aabb: AABB,
     pub is_leaf: bool,
@@ -41,7 +41,14 @@ pub struct BvhNode {
 
 impl Default for BvhNode {
     fn default() -> Self {
-        Self::new_leaf(AABB::default(), 0, 0)
+        Self {
+            aabb: Default::default(),
+            is_leaf: true,
+            left: Default::default(),
+            right: Default::default(),
+            first: Default::default(),
+            count: Default::default(),
+        }
     }
 }
 
@@ -50,8 +57,8 @@ impl BvhNode {
         Self { aabb, is_leaf: false, left, right, first: 0, count: 0 }
     }
 
-    pub fn new_leaf(aabb: AABB, first: usize, count: usize) -> Self {
-        Self { aabb, is_leaf: true, first, count, left: 0, right: 0 }
+    pub fn new_leaf(first: usize, count: usize, objects: &[Rc<dyn Hittable>]) -> Self {
+        Self { aabb: objects_to_aabb(objects), is_leaf: true, first, count, left: 0, right: 0 }
     }
 
     pub fn objects<'a>(&'a self, bvh: &'a Bvh) -> &'a [Rc<dyn Hittable>] {
@@ -73,47 +80,51 @@ impl BvhNode {
         if self.is_leaf { panic!("Cannot get child tree for leaf node") }
         &bvh.nodes[self.right]
     }
+    
+    fn get_split(&self, objects: &mut [Rc<dyn Hittable>]) -> Option<(BvhNode, BvhNode)> {
+        let current_heuristic = self.aabb.surface_area() as usize * self.count;
+        // Check each axis
+        for axis in 0..3 {
+            // Sort objects on this axis
+            objects.sort_by(|a, b| {
+                let a = a.centroid()[axis];
+                let b = b.centroid()[axis];
+                f64::total_cmp(&a, &b)
+            });
+            // Surface Area Heuristic: a split if only worth it if:
+            // left.surface_area * left.objects.len() + right.surface_area * right.objects.len()
+            //    is less than self.surface_area * self.objects.len()
+            // TODO is as usize approximation okay?
+            let split = self.count / 2;
+            let mut left_node = BvhNode::new_leaf(self.first, split, objects);
+            let mut right_node = BvhNode::new_leaf(self.first + split, self.count - split, objects);
+            let left_heuristic = left_node.aabb.surface_area() as usize * split;
+            let right_heuristic = right_node.aabb.surface_area() as usize * (self.count - split);
+            if left_heuristic + right_heuristic < current_heuristic {
+                return Some((left_node, right_node));
+            }
+        }
+        None
+    }
 
     pub fn sub_divide(&mut self, bvh: &mut Bvh) {
         assert!(self.is_leaf, "We assume that nodes start out as leaves and are then subdivided");
-        let split = {
-            // let mut bvh_b = bvh.borrow_mut();
-            let objects = self.objects_mut(bvh);
+        let nodes = self.get_split(self.objects_mut(bvh));
+        if let Some((mut left_node, mut right_node)) = nodes {
+            // Make intermediate node
+            self.left = bvh.node_pointer + 1;
+            self.right = bvh.node_pointer + 2;
+            bvh.node_pointer += 2;
 
-            if objects.len() < 3 {
-                // Set / keep as leaf
-                self.aabb = objects_to_aabb(objects);
-                return;
-            }
+            left_node.sub_divide(bvh);
+            bvh.nodes[self.left] = left_node;
+            
+            right_node.sub_divide(bvh);
+            bvh.nodes[self.right] = right_node;
 
-            // For now we choose the x-axis always
-            // TODO choose axis, also don't calculate full AABB, but use centroid
-            objects.sort_by(|a, b| {
-                let a = a.centroid().x();
-                let b = b.centroid().x();
-                f64::total_cmp(&a, &b)
-            });
-            // Return split index in this block
-            // We use this block so `objects` goes out of scope since it has a
-            // mutable borrow on bvh and we want to have a new mutable borrow in `sub_divide`
-            objects.len() / 2
-        };
-
-        self.left = bvh.node_pointer + 1;
-        self.right = bvh.node_pointer + 2;
-        bvh.node_pointer += 2;
-
-        let mut left_node = BvhNode::new_leaf(AABB::default(), self.first, split);
-        left_node.sub_divide(bvh);
-        self.aabb = left_node.aabb.clone();
-        bvh.nodes[self.left] = left_node;
-
-        let mut right_node = BvhNode::new_leaf(AABB::default(), self.first + split, self.count - split);
-        right_node.sub_divide(bvh);
-        self.aabb = &self.aabb + &right_node.aabb.clone();
-        bvh.nodes[self.right] = right_node;
-
-        self.is_leaf = false;
+            self.is_leaf = false;
+        }
+        // If no split found, keep this as a leaf.
     }
 
     pub fn hit(&self, r: &Ray, ray_t: Interval, bvh: &Bvh, rec: &mut HitRecord, data: &mut Data) -> bool {
