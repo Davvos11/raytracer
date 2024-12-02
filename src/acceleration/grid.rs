@@ -13,16 +13,16 @@ impl Grid {
     pub fn new(objects: Vec<Rc<dyn Hittable>>, box_size: Vec3, origin: Point3, end: Point3, total_size: Point3) -> Self {
         let mut origin_box = GridBox::new(origin, box_size);
         origin_box.try_add_all(&objects);
-        let mut boxes = vec![origin_box ; (total_size.x() * total_size.y() * total_size.z()) as usize];
+        let mut boxes = vec![origin_box ; ((total_size.x() / box_size.x()) * (total_size.y() / box_size.y()) * (total_size.z() / box_size.z())) as usize];
         let start_x = origin.x() as i32;
         let start_y = origin.y() as i32;
         let start_z = origin.z() as i32;
         let end_x = end.x() as i32;
         let end_y = end.y() as i32;
         let end_z = end.z() as i32;
-        for x in (start_x..=end_x).step_by(box_size.x() as usize) {
-            for y in (start_y..=end_y).step_by(box_size.y() as usize) {
-                for z in (start_z..=end_z).step_by(box_size.z() as usize) {
+        for x in (start_x..end_x).step_by(box_size.x() as usize) {
+            for y in (start_y..end_y).step_by(box_size.y() as usize) {
+                for z in (start_z..end_z).step_by(box_size.z() as usize) {
                     let min: Point3 = Point3::new(x as f64, y as f64, z as f64);
                     let distance_check = min - origin;
                     if distance_check.length_squared() <= 1.0 {
@@ -30,7 +30,17 @@ impl Grid {
                     }
                     let mut grid_box = GridBox::new(min, box_size);
                     grid_box.try_add_all(&objects);
-                    boxes[Self::get_index(Point3::new(x as f64, y as f64, z as f64), box_size, total_size)] = grid_box;
+                    let mut final_x = x;
+                    let mut final_y = y;
+                    let mut final_z = z;
+                    
+                    if origin.x() < 0.0 || origin.y() < 0.0 || origin.z() < 0.0 {
+                        final_x += (origin.x() * -1.0) as i32;
+                        final_y += (origin.y() * -1.0) as i32;
+                        final_z += (origin.z() * -1.0) as i32;
+                    }
+                    let index = Self::get_index(Point3::new(final_x as f64, final_y as f64, final_z as f64), box_size, total_size);
+                    boxes[index] = grid_box;
                 }
             }
         }
@@ -42,8 +52,11 @@ impl Grid {
         let x = (origin.x() / box_size.x()) as usize;
         let y = (origin.y() / box_size.y()) as usize;
         let z = (origin.z() / box_size.z()) as usize;
+        
+        let sizex = (total_size.x() / box_size.x());
+        let sizey = (total_size.y() / box_size.y());
 
-        (x as f64 + y as f64 * total_size.x() + z as f64 * total_size.x() * total_size.y()) as usize
+        (x as f64 + y as f64 * sizex + z as f64 * sizex * sizey) as usize
     }
 }
 
@@ -63,6 +76,7 @@ impl GridBox {
         let aabb = self.aabb.clone();
         let other = object.clone(); // todo: I'm too new to rust to know a better solution lol
         if aabb.inside(other) || object.inside(aabb) {
+            //println!("it should be in there");
             self.objects.push(array_pos);
         }
     }

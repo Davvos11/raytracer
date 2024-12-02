@@ -8,7 +8,7 @@ use crate::rtweekend::IntersectionAlgorithm;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 use crate::acceleration::grid::Grid;
-use crate::vec3::Point3;
+use crate::vec3::{Point3, Vec3};
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct HittableList {
@@ -32,7 +32,7 @@ impl HittableList {
                 self.bvh = Some(Bvh::new(self.objects.clone()));
             }
             IntersectionAlgorithm::Grid => {
-                
+                self.grid = Some(Grid::new(self.objects.clone(), Vec3::new(100.0, 100.0, 100.0), Point3::new(-100.0, -100.0, -100.0), Point3::new(100.0, 100.0, 100.0), Point3::new(200.0, 200.0, 200.0)));
             }
             _ => {}
         }
