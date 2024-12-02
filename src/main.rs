@@ -3,6 +3,7 @@ use crate::vec3::{Point3, Vec3};
 use clap::Parser;
 use std::fs::File;
 use std::time::Instant;
+use crate::acceleration::grid::Grid;
 use crate::data::Data;
 use crate::rtweekend::{get_output_filename, IntersectionAlgorithm};
 
@@ -59,9 +60,20 @@ fn main() {
         (world, filename)
     };
 
-    world.algorithm = args.algorithm;
+    //world.algorithm = args.algorithm;
+    world.algorithm = IntersectionAlgorithm::Grid;
+    
+    match world.algorithm { 
+        IntersectionAlgorithm::Grid => {
+            let grid = Grid::new(world.objects, Vec3::new(50.0, 50.0, 50.0), Point3::new(-100.0, -100.0, -100.0), Point3::new(100.0, 100.0, 100.0), Point3::new(200.0, 200.0, 200.0));
+            for gridBox in grid.boxes {
+                println!("box: {} {} {} to {} {} {} with {} objects", gridBox.aabb.min.x(), gridBox.aabb.min.y(), gridBox.aabb.min.z(), gridBox.aabb.max.x(), gridBox.aabb.max.y(), gridBox.aabb.max.z(), gridBox.objects.len())
+            }
+        }
+        _ => {}
+    }
 
-    let mut cam = Camera::new();
+    /*let mut cam = Camera::new();
     cam.aspect_ratio = 16.0 / 9.0;
     cam.image_width = 900;
     cam.samples_per_pixel = 50;
@@ -101,6 +113,6 @@ fn main() {
     println!("Total primary rays: {}", data.primary_rays());
     println!("Total scatter rays: {}", data.scatter_rays());
     println!("Total intersection checks: {}", data.intersection_checks());
-    println!("Total seconds: {}", data.seconds());
+    println!("Total seconds: {}", data.seconds());*/
 }
 

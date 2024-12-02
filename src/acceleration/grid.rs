@@ -4,8 +4,8 @@ use crate::hittable::Hittable;
 use crate::vec3::{Point3, Vec3};
 
 pub struct Grid {
-    objects: Vec<Rc<dyn Hittable>>,
-    boxes: Vec<GridBox>,
+    pub objects: Vec<Rc<dyn Hittable>>,
+    pub boxes: Vec<GridBox>,
     size: Vec3
 }
 
@@ -49,8 +49,8 @@ impl Grid {
 
 #[derive(Clone)]
 pub struct GridBox {
-    aabb: AABB,
-    objects: Vec<usize>
+    pub aabb: AABB,
+    pub objects: Vec<usize>
 }
 
 impl GridBox {
