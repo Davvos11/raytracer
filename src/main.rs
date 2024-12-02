@@ -4,7 +4,7 @@ use clap::Parser;
 use std::fs::File;
 use std::time::Instant;
 use crate::data::Data;
-use crate::rtweekend::{get_output_filename, IntersectionAlgorithm};
+use crate::rtweekend::{check_valid_options, get_output_filename, AlgorithmOptions, IntersectionAlgorithm};
 
 mod vec3;
 mod color;
@@ -27,12 +27,18 @@ struct Cli {
     filename: Option<String>,
     #[arg(long, default_value_t = IntersectionAlgorithm::default())]
     /// The intersection algorithm
-    algorithm: IntersectionAlgorithm
+    algorithm: IntersectionAlgorithm,
+    /// Options for the algorithm
+    #[arg(value_enum, long, short)]
+    options: Vec<AlgorithmOptions>,
 }
 
 fn main() {
     // Parse CLI arguments
     let args = Cli::parse();
+    if let Some(error) = check_valid_options(&args.options) {
+        panic!("{error}")
+    }
 
     let (mut world, filename) = if let Some(filename) = args.filename {
         // Deserialize the object
@@ -60,6 +66,7 @@ fn main() {
     };
 
     world.algorithm = args.algorithm;
+    world.options = args.options;
 
     let mut cam = Camera::new();
     cam.aspect_ratio = 16.0 / 9.0;

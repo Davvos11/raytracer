@@ -4,7 +4,7 @@ use crate::data::Data;
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::ray::Ray;
-use crate::rtweekend::IntersectionAlgorithm;
+use crate::rtweekend::{AlgorithmOptions, IntersectionAlgorithm};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 use crate::vec3::Point3;
@@ -15,18 +15,20 @@ pub struct HittableList {
     #[serde(skip)]
     pub algorithm: IntersectionAlgorithm,
     #[serde(skip)]
+    pub options: Vec<AlgorithmOptions>,
+    #[serde(skip)]
     bvh: Option<Bvh>,
 }
 
 impl HittableList {
     pub fn new(object: Rc<dyn Hittable>) -> Self {
-        Self { objects: vec![object], algorithm: Default::default(), bvh: None }
+        Self { objects: vec![object], algorithm: Default::default(), options: Vec::new(), bvh: None }
     }
 
     pub fn init(&mut self) {
         match self.algorithm {
             IntersectionAlgorithm::BVH => {
-                self.bvh = Some(Bvh::new(self.objects.clone()));
+                self.bvh = Some(Bvh::new(self.objects.clone(), &self.options));
             }
             _ => {}
         }

@@ -5,6 +5,8 @@ use crate::interval::Interval;
 use crate::ray::Ray;
 use std::rc::Rc;
 use crate::data::Data;
+use crate::rtweekend::AlgorithmOptions;
+use crate::rtweekend::AlgorithmOptions::BvhNaive;
 
 /// BVH and AABB from course slides
 pub struct Bvh {
@@ -14,11 +16,11 @@ pub struct Bvh {
 }
 
 impl Bvh {
-    pub fn new(objects: Vec<Rc<dyn Hittable>>) -> Self {
+    pub fn new(objects: Vec<Rc<dyn Hittable>>, options: &[AlgorithmOptions]) -> Self {
         let nodes = vec![BvhNode::default(); objects.len() * 2 - 1];
         let mut result = Self { objects, nodes, node_pointer: 0 };
         let mut root = BvhNode::new_leaf(0, result.objects.len(), &result.objects);
-        root.sub_divide(&mut result);
+        root.sub_divide(&mut result, options);
         result.nodes[0] = root;
         result
     }
@@ -81,7 +83,21 @@ impl BvhNode {
         &bvh.nodes[self.right]
     }
     
-    fn get_split(&self, objects: &mut [Rc<dyn Hittable>]) -> Option<(BvhNode, BvhNode)> {
+    fn get_split(&self, objects: &mut [Rc<dyn Hittable>], options: &[AlgorithmOptions]) -> Option<(BvhNode, BvhNode)> {
+        if options.contains(&BvhNaive) {
+            if objects.len() < 3 { return None; }
+            // Sort objects on this axis
+            objects.sort_by(|a, b| {
+                let a = a.centroid().x();
+                let b = b.centroid().x();
+                f64::total_cmp(&a, &b)
+            });
+            let split = self.count / 2;
+            let left_node = BvhNode::new_leaf(self.first, split, objects);
+            let right_node = BvhNode::new_leaf(self.first + split, self.count - split, objects);
+            return Some((left_node, right_node));
+        }
+        
         let current_heuristic = self.aabb.surface_area() as usize * self.count;
         // Check each axis
         for axis in 0..3 {
@@ -107,19 +123,19 @@ impl BvhNode {
         None
     }
 
-    pub fn sub_divide(&mut self, bvh: &mut Bvh) {
+    pub fn sub_divide(&mut self, bvh: &mut Bvh, options: &[AlgorithmOptions]) {
         assert!(self.is_leaf, "We assume that nodes start out as leaves and are then subdivided");
-        let nodes = self.get_split(self.objects_mut(bvh));
+        let nodes = self.get_split(self.objects_mut(bvh), options);
         if let Some((mut left_node, mut right_node)) = nodes {
             // Make intermediate node
             self.left = bvh.node_pointer + 1;
             self.right = bvh.node_pointer + 2;
             bvh.node_pointer += 2;
 
-            left_node.sub_divide(bvh);
+            left_node.sub_divide(bvh, options);
             bvh.nodes[self.left] = left_node;
             
-            right_node.sub_divide(bvh);
+            right_node.sub_divide(bvh, options);
             bvh.nodes[self.right] = right_node;
 
             self.is_leaf = false;

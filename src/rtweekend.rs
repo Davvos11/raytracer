@@ -2,19 +2,41 @@ use std::fmt::{Display, Formatter};
 use std::path::Path;
 use clap::ValueEnum;
 use rand::Rng;
+use crate::rtweekend::AlgorithmOptions::{BvhNaive, BvhSahPlane, BvhSahPosition};
 
 #[derive(Default, Copy, Clone, ValueEnum)]
 pub enum IntersectionAlgorithm {
     #[default]
     Naive,
-    BVH
+    BVH,
+}
+
+#[derive(Copy, Clone, ValueEnum, Debug, Eq, PartialEq)]
+pub enum AlgorithmOptions {
+    // BVH options:
+    /// Naive BVH, always split on the x plane and position halfway
+    BvhNaive,
+    /// BVH with SAH but only to determine the plane, not the split position
+    BvhSahPlane,
+    /// BVH with SAH for the plane and the split position (default)
+    BvhSahPosition,
+}
+const BVH_OPTIONS: &[AlgorithmOptions] = &[BvhNaive, BvhSahPlane, BvhSahPosition];
+
+pub fn check_valid_options(options: &[AlgorithmOptions]) -> Option<String> {
+    // Only one of the different Bvh options is allowed
+    let bvh_options = options.iter().filter(|&x| BVH_OPTIONS.contains(x));
+    if bvh_options.clone().count() > 1 {
+        return Some(format!("Can't have the following options at the same time: {:?}", bvh_options.collect::<Vec<_>>()));
+    }
+    None
 }
 
 impl Display for IntersectionAlgorithm {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            IntersectionAlgorithm::Naive => {write!(f, "naive")}
-            IntersectionAlgorithm::BVH => {write!(f, "bvh")}
+            IntersectionAlgorithm::Naive => { write!(f, "naive") }
+            IntersectionAlgorithm::BVH => { write!(f, "bvh") }
         }
     }
 }
