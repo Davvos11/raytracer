@@ -20,9 +20,6 @@ mod scenes;
 mod triangle;
 mod acceleration;
 mod data;
-mod grid;
-mod intbox;
-mod intpoint;
 
 #[derive(Parser)]
 struct Cli {

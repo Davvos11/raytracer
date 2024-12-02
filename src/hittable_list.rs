@@ -7,6 +7,7 @@ use crate::ray::Ray;
 use crate::rtweekend::IntersectionAlgorithm;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
+use crate::acceleration::grid::Grid;
 use crate::vec3::Point3;
 
 #[derive(Default, Serialize, Deserialize)]
@@ -16,17 +17,22 @@ pub struct HittableList {
     pub algorithm: IntersectionAlgorithm,
     #[serde(skip)]
     bvh: Option<Bvh>,
+    #[serde(skip)]
+    grid: Option<Grid>
 }
 
 impl HittableList {
     pub fn new(object: Rc<dyn Hittable>) -> Self {
-        Self { objects: vec![object], algorithm: Default::default(), bvh: None }
+        Self { objects: vec![object], algorithm: Default::default(), bvh: None, grid: None }
     }
 
     pub fn init(&mut self) {
         match self.algorithm {
             IntersectionAlgorithm::BVH => {
                 self.bvh = Some(Bvh::new(self.objects.clone()));
+            }
+            IntersectionAlgorithm::Grid => {
+                
             }
             _ => {}
         }
@@ -68,6 +74,9 @@ impl Hittable for HittableList {
                 } else {
                     panic!("Please run HittableList.init() first")
                 }
+            }
+            IntersectionAlgorithm::Grid => {
+                true // todo: do smth here
             }
         }
     }

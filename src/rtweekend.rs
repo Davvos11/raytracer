@@ -7,7 +7,8 @@ use rand::Rng;
 pub enum IntersectionAlgorithm {
     #[default]
     Naive,
-    BVH
+    BVH,
+    Grid
 }
 
 impl Display for IntersectionAlgorithm {
@@ -15,6 +16,7 @@ impl Display for IntersectionAlgorithm {
         match self {
             IntersectionAlgorithm::Naive => {write!(f, "naive")}
             IntersectionAlgorithm::BVH => {write!(f, "bvh")}
+            IntersectionAlgorithm::Grid => {write!(f, "grid")}
         }
     }
 }
