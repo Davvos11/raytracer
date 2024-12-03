@@ -1,4 +1,5 @@
 use std::ops::Add;
+use crate::hittable::HitRecord;
 use crate::interval::Interval;
 use crate::ray::Ray;
 use crate::vec3::Point3;
@@ -21,7 +22,7 @@ impl AABB {
 
     /// From https://raytracing.github.io/books/RayTracingTheNextWeek.html#boundingvolumehierarchies/rayintersectionwithanaabb
     /// With an extension to return the intersection point (on the ray)
-    pub fn hit(&self, ray: &Ray, ray_t: Interval) -> Option<f64> {
+    pub fn hit(&self, ray: &Ray, ray_t: Interval, rec: &mut HitRecord) -> Option<f64> {
         // Make a copy for local use
         let mut ray_t = ray_t;
         for axis in 0..3 {
@@ -43,7 +44,20 @@ impl AABB {
             if ray_t.max <= ray_t.min { return None; }
         }
 
+        let hit_point = *ray.origin() + ray_t.min * *ray.direction();
+        if self.is_edge(hit_point) {
+            rec.hits_aabb_edge = true;
+        }
         Some(ray_t.min)
+    }
+
+    fn is_edge(&self, point: Point3) -> bool {
+        (0..3)
+            .filter(|&axis| {
+                point[axis] <= self.min[axis] + 0.01 && point[axis] >= self.min[axis] - 0.01 
+                    || point[axis] <= self.max[axis] + 0.01 && point[axis] >= self.max[axis] - 0.01 
+            })
+            .count() >= 2
     }
 
     // TODO maybe the 2.0 can be removed since it is only a comparator

@@ -13,6 +13,7 @@ pub struct HitRecord {
     pub mat: Option<Rc<dyn Material>>,
     pub t: f64,
     pub front_face: bool,
+    pub hits_aabb_edge: bool,
 }
 
 impl HitRecord {

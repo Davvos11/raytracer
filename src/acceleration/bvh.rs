@@ -164,13 +164,13 @@ impl BvhNode {
         // If no split found, keep this as a leaf.
     }
 
-    pub fn hit_aabb(&self, r: &Ray, ray_t: Interval, data: &mut Data) -> Option<f64> {
+    pub fn hit_aabb(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data) -> Option<f64> {
         data.add_intersection_check();
-        self.aabb.hit(r, ray_t)
+        self.aabb.hit(r, ray_t, rec)
     }
 
     pub fn hit(&self, r: &Ray, ray_t: Interval, bvh: &Bvh, rec: &mut HitRecord, data: &mut Data) -> bool {
-        if self.hit_aabb(r, ray_t, data).is_none() { return false }
+        if self.hit_aabb(r, ray_t, rec, data).is_none() { return false }
         
         let mut hit_anything = false;
         let mut closest_so_far = ray_t.max;
