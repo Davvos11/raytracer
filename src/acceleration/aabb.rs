@@ -76,6 +76,12 @@ impl AABB {
             && self.max.y() >= other.min.y() && self.min.y() <= other.max.y()
             && self.max.z() >= other.min.z() && self.min.z() <= other.max.z()
     }
+    
+    pub fn point_inside(&self, point: Point3) -> bool {
+        self.min.x() <= point.x() && self.max.x() >= point.x()
+            && self.min.y() <= point.y() && self.max.y() >= point.y()
+            && self.min.z() <= point.z() && self.max.z() >= point.z()
+    }
 }
 
 impl Add for AABB {

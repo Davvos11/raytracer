@@ -1,3 +1,4 @@
+use std::ops::Add;
 use std::rc::Rc;
 use crate::acceleration::aabb::AABB;
 use crate::hittable::Hittable;
@@ -10,7 +11,8 @@ pub struct Grid {
     pub boxes: Vec<GridBox>,
     pub box_size: Vec3,
     pub origin: Point3,
-    pub total_size: Point3
+    pub total_size: Point3,
+    pub aabb: AABB
 }
 
 impl Grid {
@@ -44,7 +46,7 @@ impl Grid {
             }
         }
         
-        Self { objects, boxes, box_size, origin, total_size }
+        Self { objects, boxes, box_size, origin, total_size, aabb: AABB::new(origin, end) }
     }
     
     pub fn get_index(point: Point3, box_size: Vec3, total_size: Point3) -> usize {
@@ -52,22 +54,118 @@ impl Grid {
         let y = (point.y() / box_size.y()) as usize;
         let z = (point.z() / box_size.z()) as usize;
         
-        let sizex = (total_size.x() / box_size.x());
-        let sizey = (total_size.y() / box_size.y());
+        let size_x = (total_size.x() / box_size.x());
+        let size_y = (total_size.y() / box_size.y());
 
-        (x as f64 + y as f64 * sizex + z as f64 * sizex * sizey) as usize
+        (x as f64 + y as f64 * size_x + z as f64 * size_x * size_y) as usize
     }
     
     /// Finds the grid box that a ray enters
     pub fn get_grid_box_origin_from_ray(&self, ray: Ray) -> Option<&GridBox> {
-        let t 
+        panic!("implement me")
+    }
+    
+    /// Finds the point at which the ray enters the grid box
+    pub fn get_point_enter(grid_box: &GridBox, ray: &Ray) -> Vec3 {
+        panic!("implement me")
+    }
+    
+    /// Gets the starting and ending t for when the ray hits the box
+    pub fn get_start_and_end_t(grid_box: &GridBox, ray: &Ray) -> (f64, f64) {
+        panic!("implement me")
+    }
+    
+    /// Gets value of t for which the ray crosses the first voxel boundary for x, y and z
+    pub fn get_tmax(grid_box: &GridBox, ray: &Ray) -> Vec3 {
+        panic!("implement me")
+    }
+    
+    /// Gets the units of t for how far along each axis we need to move to cross a boundary
+    pub fn get_tdelta(&self, ray: &Ray) -> Vec3 {
+        panic!("implement me")
+    }
+    
+    /// Gets the first box the ray encounters, can be the box the ray starts inside
+    pub fn get_box_enter(&self, ray: &Ray) -> Option<&GridBox> {
+        panic!("implement me")
     }
     
     /// Finds the grid box that a given point on a ray is in
-    pub fn get_grid_box_from_ray(&self, ray: Ray, t: f64) -> Option<&GridBox> {
+    pub fn get_grid_box_from_ray(&self, ray: &Ray, t: f64) -> Option<&GridBox> {
         let point = *ray.origin() + *ray.direction() * t;
         
         self.get_grid_box_from_point(point)
+    }
+    
+    /// Traverses the grid until the gridbox containing the object the ray intersects with is found
+    pub fn traverse(&self, ray: &Ray) -> Option<&GridBox> {
+        if let Some(grid_box) = self.get_box_enter(ray) {
+            let mut xyz: Vec3 = Self::get_point_enter(grid_box, ray);
+            let step: Vec3 = Self::step(ray);
+            let mut t_max: Vec3 = Self::get_tmax(grid_box, ray);
+            let t_delta: Vec3 = self.get_tdelta(ray);
+            let mut list: Option<&GridBox> = None;
+            loop {
+                if t_max.x() < t_max.y() {
+                    if t_max.x() < t_max.z() {
+                        xyz += Vec3::new(step.x(), 0.0, 0.0);
+                        if self.outside(xyz) {
+                            break;
+                        }
+                        t_max += Vec3::new(t_delta.x(), 0.0, 0.0);
+                    } else {
+                        xyz += Vec3::new(0.0, 0.0, step.z());
+                        if self.outside(xyz) {
+                            break;
+                        }
+                        t_max += Vec3::new(0.0, 0.0, t_delta.z());
+                    }
+                } else {
+                    if (t_max.y() < t_max.z()) {
+                        xyz += Vec3::new(0.0, step.y(), 0.0);
+                        if self.outside(xyz) {
+                            break;
+                        }
+                        t_max += Vec3::new(0.0, t_delta.y(), 0.0);
+                    } else {
+                        xyz += Vec3::new(0.0, 0.0, step.z());
+                        if self.outside(xyz) {
+                            break;
+                        }
+                        t_max += Vec3::new(0.0, 0.0, t_delta.z());
+                    }
+                }
+                list = self.get_grid_box_from_point(xyz);
+                if let Some(current_box) = list {
+                    if !current_box.objects.is_empty() {
+                        break; // todo: check if the intersection is inside this object
+                    }
+                }
+                
+            }
+            return list;
+        }
+        None
+    }
+    
+    pub fn outside(&self, t_max: Vec3) -> bool {
+        !self.aabb.point_inside(t_max)
+    }
+    
+    pub fn step(ray: &Ray) -> Vec3 {
+        let mut stepx = 1.0;
+        if ray.direction().x() < 0.0 {
+            stepx = -1.0;
+        }
+        let mut stepy = 1.0;
+        if ray.direction().y() < 0.0 {
+            stepy = -1.0;
+        }
+        let mut stepz = 1.0;
+        if ray.direction().z() < 0.0 {
+            stepz = -1.0;
+        }
+        Vec3::new(stepx, stepy, stepz)
     }
     
     /// Calculates the grid box given a point in O(1) time
