@@ -88,9 +88,8 @@ impl BvhNode {
     }
 
     fn get_split(&self, objects: &mut [Rc<dyn Hittable>], options: &Options) -> Option<(BvhNode, BvhNode)> {
-        // if objects.len() < 3 { return None; }
-
         if options.options.contains(&BvhNaive) {
+            if objects.len() < 3 { return None; }
             // Sort objects on this axis
             objects.sort_by(|a, b| {
                 let a = a.centroid().x();
