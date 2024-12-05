@@ -11,6 +11,21 @@ pub enum IntersectionAlgorithm {
     BVH,
 }
 
+#[derive(Default, Clone,Debug, Eq, PartialEq)]
+pub struct Options {
+    pub options: Vec<AlgorithmOptions>,
+    pub draw_boxes: bool,
+}
+
+impl Options {
+    pub fn new(alg_options: Vec<AlgorithmOptions>) -> Self {
+        Self {
+            draw_boxes: alg_options.contains(&AlgorithmOptions::DrawBoxes),
+            options: alg_options,
+        }
+    }
+}
+
 #[derive(Copy, Clone, ValueEnum, Debug, Eq, PartialEq)]
 pub enum AlgorithmOptions {
     // BVH options:
@@ -20,6 +35,8 @@ pub enum AlgorithmOptions {
     BvhSahPlane,
     /// BVH with SAH for the plane and the split position (default)
     BvhSahPosition,
+    /// Draw bounding boxes
+    DrawBoxes
 }
 const BVH_OPTIONS: &[AlgorithmOptions] = &[BvhNaive, BvhSahPlane, BvhSahPosition];
 

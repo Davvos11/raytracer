@@ -1,12 +1,12 @@
 use crate::acceleration::aabb::AABB;
+use crate::data::Data;
 use crate::hittable::{HitRecord, Hittable};
 use crate::hittable_list::objects_to_aabb;
 use crate::interval::Interval;
 use crate::ray::Ray;
-use std::rc::Rc;
-use crate::data::Data;
-use crate::rtweekend::AlgorithmOptions;
 use crate::rtweekend::AlgorithmOptions::{BvhNaive, BvhSahPlane};
+use crate::rtweekend::Options;
+use std::rc::Rc;
 
 /// BVH and AABB from course slides
 pub struct Bvh {
@@ -16,7 +16,7 @@ pub struct Bvh {
 }
 
 impl Bvh {
-    pub fn new(objects: Vec<Rc<dyn Hittable>>, options: &[AlgorithmOptions]) -> Self {
+    pub fn new(objects: Vec<Rc<dyn Hittable>>, options: &Options) -> Self {
         let nodes = vec![BvhNode::default(); objects.len() * 4];
         let mut result = Self { objects, nodes, node_pointer: 0 };
         let mut root = BvhNode::new_leaf(0, 0, result.objects.len(), &result.objects);
@@ -87,10 +87,10 @@ impl BvhNode {
         &bvh.nodes[self.right]
     }
 
-    fn get_split(&self, objects: &mut [Rc<dyn Hittable>], options: &[AlgorithmOptions]) -> Option<(BvhNode, BvhNode)> {
-        if objects.len() < 3 { return None; }
-        
-        if options.contains(&BvhNaive) {
+    fn get_split(&self, objects: &mut [Rc<dyn Hittable>], options: &Options) -> Option<(BvhNode, BvhNode)> {
+        // if objects.len() < 3 { return None; }
+
+        if options.options.contains(&BvhNaive) {
             // Sort objects on this axis
             objects.sort_by(|a, b| {
                 let a = a.centroid().x();
@@ -103,48 +103,68 @@ impl BvhNode {
             return Some((left_node, right_node));
         }
 
-        let current_heuristic = self.aabb.surface_area() as usize * self.count;
+        let mut best_heuristic = self.aabb.surface_area() as usize * self.count;
+        let mut best_split = None;
+        let mut best_axis = 0;
         // Check each axis
         for axis in 0..3 {
             // Sort objects on this axis
-            objects.sort_by(|a, b| {
+            let mut axis_objects = objects.to_vec();
+            axis_objects.sort_by(|a, b| {
                 let a = a.centroid()[axis];
                 let b = b.centroid()[axis];
                 f64::total_cmp(&a, &b)
             });
 
-            if options.contains(&BvhSahPlane) {
+            if options.options.contains(&BvhSahPlane) {
+                // TODO check this (or ignore)
                 let split = self.count / 2;
-                if let result @ Some(_) = self.check_split_sah(split, objects, current_heuristic) {
-                    return result;
+                if let Some((heuristic, left, right)) = self.check_split_sah(split, &axis_objects, best_heuristic) {
+                    if heuristic < best_heuristic {
+                        best_heuristic = heuristic;
+                        best_split = Some((left, right));
+                        best_axis = axis;
+                    }
                 }
             } else {
-                for split in 0..objects.len() {
-                    if let result @ Some(_) = self.check_split_sah(split, objects, current_heuristic) {
-                        return result;
+                for split in 1..objects.len() {
+                    if let Some((heuristic, left, right)) = self.check_split_sah(split, &axis_objects, best_heuristic) {
+                        if heuristic < best_heuristic {
+                            best_heuristic = heuristic;
+                            best_split = Some((left, right));
+                            best_axis = axis;
+                        }
                     }
                 }
             }
         }
-        None
+        objects.sort_by(|a, b| {
+            let a = a.centroid()[best_axis];
+            let b = b.centroid()[best_axis];
+            f64::total_cmp(&a, &b)
+        });
+        best_split
     }
 
     /// Surface Area Heuristic: a split if only worth it if:
     /// left.surface_area * left.objects.len() + right.surface_area * right.objects.len()
     ///    is less than self.surface_area * self.objects.len()
-    fn check_split_sah(&self, split: usize, objects: &[Rc<dyn Hittable>], current_heuristic: usize) -> Option<(BvhNode, BvhNode)> {
+    /// Returns the new heuristic and the two nodes (or None if the split is not worth it)
+    fn check_split_sah(&self, split: usize, objects: &[Rc<dyn Hittable>], current_heuristic: usize)
+                       -> Option<(usize, BvhNode, BvhNode)> {
         let left_node = BvhNode::new_leaf(0, self.first, split, objects);
         let right_node = BvhNode::new_leaf(split, self.first, self.count - split, objects);
         let left_heuristic = left_node.aabb.surface_area() as usize * split;
         let right_heuristic = right_node.aabb.surface_area() as usize * (self.count - split);
-        if left_heuristic + right_heuristic < current_heuristic {
-            Some((left_node, right_node))
+        let new_heuristic = left_heuristic + right_heuristic;
+        if new_heuristic < current_heuristic {
+            Some((new_heuristic, left_node, right_node))
         } else {
             None
         }
     }
 
-    pub fn sub_divide(&mut self, bvh: &mut Bvh, options: &[AlgorithmOptions]) {
+    pub fn sub_divide(&mut self, bvh: &mut Bvh, options: &Options) {
         assert!(self.is_leaf, "We assume that nodes start out as leaves and are then subdivided");
         let nodes = self.get_split(self.objects_mut(bvh), options);
         if let Some((mut left_node, mut right_node)) = nodes {
@@ -164,14 +184,15 @@ impl BvhNode {
         // If no split found, keep this as a leaf.
     }
 
-    pub fn hit_aabb(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data) -> Option<f64> {
+    pub fn hit_aabb(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, options: &Options) -> Option<f64> {
         data.add_intersection_check();
-        self.aabb.hit(r, ray_t, rec)
+        self.aabb.hit(r, ray_t, rec, options)
     }
 
-    pub fn hit(&self, r: &Ray, ray_t: Interval, bvh: &Bvh, rec: &mut HitRecord, data: &mut Data) -> bool {
-        if self.hit_aabb(r, ray_t, rec, data).is_none() { return false }
-        
+    #[allow(clippy::collapsible_if)]
+    pub fn hit(&self, r: &Ray, ray_t: Interval, bvh: &Bvh, rec: &mut HitRecord, data: &mut Data, options: &Options) -> bool {
+        // if self.hit_aabb(r, ray_t, rec, data).is_none() { return false }
+
         let mut hit_anything = false;
         let mut closest_so_far = ray_t.max;
 
@@ -184,12 +205,31 @@ impl BvhNode {
                 }
             }
         } else {
-            // TODO check which tree is closer? Or has the least intersections?
-            if self.left(bvh).hit(r, ray_t, bvh, rec, data) {
+            let left = self.left(bvh);
+            let left_distance = left.hit_aabb(r, ray_t, rec, data, options);
+            let right = self.right(bvh);
+            let right_distance = right.hit_aabb(r, ray_t, rec, data, options);
+
+            if let (Some(left_distance), Some(right_distance)) = (left_distance, right_distance) {
+                let (close, far) =
+                    if left_distance >= right_distance { (right, left) } else { (left, right) };
+                let far_distance = left_distance.max(right_distance);
+                if close.hit(r, ray_t, bvh, rec, data, options) {
+                    hit_anything = true;
+                    closest_so_far = rec.t;
+                    // If the hitpoint is also in the far aabb, then also check that
+                    if far_distance < closest_so_far {
+                        data.add_overlapping_aabb();
+                        if far.hit(r, Interval::new(ray_t.min, closest_so_far), bvh, rec, data, options) {
+                            hit_anything = true;
+                        }
+                    }
+                } else if far.hit(r, ray_t, bvh, rec, data, options) {
+                    hit_anything = true;
+                }
+            } else if left_distance.is_some() && left.hit(r, ray_t, bvh, rec, data, options) {
                 hit_anything = true;
-                closest_so_far = rec.t;
-            }
-            if self.right(bvh).hit(r, Interval::new(ray_t.min, closest_so_far), bvh, rec, data) {
+            } else if right_distance.is_some() && right.hit(r, ray_t, bvh, rec, data, options) {
                 hit_anything = true;
             }
         }

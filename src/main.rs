@@ -4,7 +4,7 @@ use clap::Parser;
 use std::fs::File;
 use std::time::Instant;
 use crate::data::Data;
-use crate::rtweekend::{check_valid_options, get_output_filename, AlgorithmOptions, IntersectionAlgorithm};
+use crate::rtweekend::{check_valid_options, get_output_filename, AlgorithmOptions, IntersectionAlgorithm, Options};
 
 mod vec3;
 mod color;
@@ -39,6 +39,7 @@ fn main() {
     if let Some(error) = check_valid_options(&args.options) {
         panic!("{error}")
     }
+    let options = Options::new(args.options);
 
     let (mut world, filename) = if let Some(filename) = args.filename {
         // Deserialize the object
@@ -66,7 +67,7 @@ fn main() {
     };
 
     world.algorithm = args.algorithm;
-    world.options = args.options;
+    world.options = options;
 
     let mut cam = Camera::new();
     cam.aspect_ratio = 16.0 / 9.0;
@@ -107,6 +108,7 @@ fn main() {
     data.set_seconds(start.elapsed().as_secs_f64());
     println!("Total primary rays: {}", data.primary_rays());
     println!("Total scatter rays: {}", data.scatter_rays());
+    println!("Overlapping AABBs: {}", data.overlapping_aabb());
     println!("Total intersection checks: {}", data.intersection_checks());
     println!("Total seconds: {}", data.seconds());
 }

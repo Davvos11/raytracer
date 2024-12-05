@@ -101,6 +101,10 @@ impl Vec3 {
             self.x() * rhs.y() - self.y() * rhs.x(),
         )
     }
+    
+    pub fn red() -> Self { Self::new(1.0, 0.0, 0.0) }
+    pub fn green() -> Self { Self::new(0.0, 1.0, 0.0) }
+    pub fn blue() -> Self { Self::new(0.0, 0.0, 1.0) }
 }
 
 impl Neg for Vec3 {

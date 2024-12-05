@@ -32,4 +32,6 @@ pub trait Hittable {
     fn to_aabb(&self) -> AABB;
 
     fn centroid(&self) -> Point3;
+    
+    fn surface_area(&self) -> f64;
 }
