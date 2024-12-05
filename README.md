@@ -20,4 +20,11 @@ It will write the scene as json to the `scenes` folder. (and also render to the 
 - [x] BVH using SAH, based on slides from _Advanced Graphics_
 - [x] Importing PLY files, for example the [Stanford Models](https://graphics.stanford.edu/data/3Dscanrep/)
 
+## Acknowledgments
+This repository includes some `ply` models from the [Stanford Models](https://graphics.stanford.edu/data/3Dscanrep/).
+Specifically:
+- Dragon:
+  - Source: Stanford University Computer Graphics Laboratory
+  -  Scanner: Cyberware 3030 MS + spacetime analysis
+
 ![Final image](final_image.png)
