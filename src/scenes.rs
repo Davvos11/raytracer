@@ -159,9 +159,27 @@ pub fn triangle_materials() -> (HittableList, String) {
     let b = Point3::new(2.0, 0.0, -2.5);
     let c = Point3::new(1.0, 0.8, -1.0);
     world.add(Rc::new(Triangle::new(a, b, c, material_glass)));
-    
+
     world.add(Rc::new(Sphere::new(Point3::new(1.0, 0.0, -1.5), 0.5, material_blue)));
     world.add(Rc::new(Sphere::new(Point3::new(1.8, 1.0, -2.0), 0.5, material_red)));
 
     (world, "triangle_materials".to_string())
+}
+
+#[allow(dead_code)]
+pub fn triangle_test() -> (HittableList, String) {
+    let mut world = HittableList::default();
+    let material_red = Rc::new(Lambertian::new(Color::new(0.8, 0.2, 0.1)));
+
+    let a = Point3::new(-1.0, 0.0, -2.2);
+    let b = Point3::new(-3.0, 0.0, -2.0);
+    let c = Point3::new(-2.0, 1.5, -1.9);
+    world.add(Rc::new(Triangle::new(a, b, c, material_red.clone())));
+
+    let a = Point3::new(3.0, 0.0, -2.2);
+    let b = Point3::new(1.0, 0.0, -2.0);
+    let c = Point3::new(2.0, 1.5, -1.9);
+    world.add(Rc::new(Triangle::new(c, b, a, material_red.clone())));
+    
+    (world, "triangle_test".to_string())
 }

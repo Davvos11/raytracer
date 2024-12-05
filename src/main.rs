@@ -2,9 +2,13 @@ use crate::camera::Camera;
 use crate::vec3::{Point3, Vec3};
 use clap::Parser;
 use std::fs::File;
+use std::rc::Rc;
 use std::time::Instant;
+use crate::color::Color;
 use crate::data::Data;
-use crate::rtweekend::{check_valid_options, get_output_filename, AlgorithmOptions, IntersectionAlgorithm, Options};
+use crate::material::Lambertian;
+use crate::parser::parse_ply;
+use crate::rtweekend::{check_valid_options, get_output_filename, AlgorithmOptions, FileFormat, IntersectionAlgorithm, Options};
 
 mod vec3;
 mod color;
@@ -20,12 +24,16 @@ mod scenes;
 mod triangle;
 mod acceleration;
 mod data;
+mod parser;
 
 #[derive(Parser)]
 struct Cli {
     /// The world / scene file
     filename: Option<String>,
-    #[arg(long, default_value_t = IntersectionAlgorithm::default())]
+    #[arg(long, value_enum, default_value_t = FileFormat::default())]
+    /// The input file format
+    format: FileFormat,
+    #[arg(long, value_enum, default_value_t = IntersectionAlgorithm::default())]
     /// The intersection algorithm
     algorithm: IntersectionAlgorithm,
     /// Options for the algorithm
@@ -42,10 +50,19 @@ fn main() {
     let options = Options::new(args.options);
 
     let (mut world, filename) = if let Some(filename) = args.filename {
-        // Deserialize the object
-        let file = File::open(&filename).expect("Could not open scene file");
-        let world = serde_json::from_reader(&file).expect("Could not read scene file");
-        (world, filename)
+        match args.format {
+            FileFormat::Native => {
+                // Deserialize the object
+                let file = File::open(&filename).expect("Could not open scene file");
+                let world = serde_json::from_reader(&file).expect("Could not read scene file");
+                (world, filename)
+            }
+            FileFormat::PLY => {
+                let material = Rc::new(Lambertian::new(Color::new(0.8, 0.2, 0.1)));
+                let world = parse_ply(&filename.clone().into(), material).expect("Failed to open PLY scene");
+                (world, filename)
+            }
+        }
     } else {
         // let (world, filename) = scenes::weekend_final();
         // let (world, filename) = scenes::weekend_custom(2, 0.9, 0.05);
@@ -55,7 +72,8 @@ fn main() {
         // let (world, filename) = scenes::simple_shiny_metal();
         // let (world, filename) = scenes::simple_fuzzy_metal();
         // let (world, filename) = scenes::simple_triangle();
-        let (world, filename) = scenes::triangle_materials();
+        // let (world, filename) = scenes::triangle_materials();
+        let (world, filename) = scenes::triangle_test();
 
         // Serialize the world
         let filename = format!("scenes/{filename}.json");
@@ -74,12 +92,19 @@ fn main() {
     cam.image_width = 900;
     cam.samples_per_pixel = 50;
     cam.max_depth = 50;
+    cam.defocus_angle = 0.1;
+    cam.focus_dist = 1.0;
 
     // TODO this is very hacky, encode this in the json files
     if filename.starts_with("scenes/weekend") {
         cam.vfov = 20.0;
         cam.look_from = Point3::new(13.0, 2.0, 3.0);
         cam.look_at = Point3::new(0.0, 0.0, 0.0);
+    } else if filename.starts_with("scenes/dragon") {
+        cam.vfov = 20.0;
+        cam.focus_dist = 50.0;
+        cam.look_from = Point3::new(0.0, 15.0, 50.0);
+        cam.look_at = Point3::new(0.0, 12.0, 0.0);
     } else {
         cam.vfov = 90.0;
         cam.look_from = Point3::new(0.0, 0.0, 0.0);
@@ -87,9 +112,7 @@ fn main() {
     }
     cam.v_up = Vec3::new(0.0, 1.0, 0.0);
 
-    cam.defocus_angle = 0.1;
-    cam.focus_dist = 1.0;
-    
+
     // Open file
     let filename = get_output_filename(&filename, &args.algorithm)
         .expect("Could not parse filename");

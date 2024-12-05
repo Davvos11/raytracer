@@ -11,6 +11,13 @@ pub enum IntersectionAlgorithm {
     BVH,
 }
 
+#[derive(Default, Copy, Clone, ValueEnum)]
+pub enum FileFormat {
+    #[default]
+    Native,
+    PLY,
+}
+
 #[derive(Default, Clone,Debug, Eq, PartialEq)]
 pub struct Options {
     pub options: Vec<AlgorithmOptions>,
