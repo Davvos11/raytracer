@@ -94,4 +94,12 @@ impl Hittable for Triangle {
     fn centroid(&self) -> Point3 {
         self.centroid
     }
+
+    fn surface_area(&self) -> f64 {
+        let ab = self.b() - self.a();
+        let ac = self.c() - self.a();
+        let cross = ab.cross(&ac);
+        let magnitude = cross.length();
+        0.5 * magnitude
+    }
 }

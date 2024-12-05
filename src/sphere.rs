@@ -1,3 +1,4 @@
+use std::f64::consts::PI;
 use crate::acceleration::aabb::AABB;
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
@@ -67,5 +68,9 @@ impl Hittable for Sphere {
 
     fn centroid(&self) -> Point3 {
         self.center
+    }
+
+    fn surface_area(&self) -> f64 {
+        4.0 * PI * self.radius
     }
 }

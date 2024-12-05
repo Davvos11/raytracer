@@ -3,12 +3,13 @@ pub struct Data {
     seconds: f64,
     primary_rays: usize,
     scatter_rays: usize,
-    intersection_checks: usize
+    intersection_checks: usize,
+    overlapping_aabb: usize,
 }
 
 impl Data {
     pub fn new() -> Data {
-        Data { seconds: 0.0, primary_rays: 0, scatter_rays: 0, intersection_checks: 0 }
+        Data::default()
     }
 
     pub fn seconds(&self) -> f64 {
@@ -41,5 +42,13 @@ impl Data {
 
     pub fn add_intersection_check(&mut self) {
         self.intersection_checks += 1;
+    }
+
+    pub fn overlapping_aabb(&self) -> usize {
+        self.overlapping_aabb
+    }
+
+    pub fn add_overlapping_aabb(&mut self) {
+        self.overlapping_aabb += 1;
     }
 }
