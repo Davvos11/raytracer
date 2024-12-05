@@ -6,9 +6,16 @@ use crate::rtweekend::AlgorithmOptions::{BvhNaive, BvhSahPlane, BvhSahPosition};
 
 #[derive(Default, Copy, Clone, ValueEnum)]
 pub enum IntersectionAlgorithm {
-    #[default]
     Naive,
+    #[default]
     BVH,
+}
+
+#[derive(Default, Copy, Clone, ValueEnum)]
+pub enum FileFormat {
+    #[default]
+    Native,
+    PLY,
 }
 
 #[derive(Default, Clone,Debug, Eq, PartialEq)]
