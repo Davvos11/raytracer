@@ -3,7 +3,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, 
 use serde::{Deserialize, Serialize};
 use crate::rtweekend::{random_double, random_double_range};
 
-#[derive(Default, Copy, Clone, Serialize, Deserialize)]
+#[derive(Default, Copy, Clone, Serialize, Deserialize, Debug)]
 pub struct Vec3 {
     e: [f64; 3],
 }
@@ -101,6 +101,10 @@ impl Vec3 {
             self.x() * rhs.y() - self.y() * rhs.x(),
         )
     }
+    
+    pub fn red() -> Self { Self::new(1.0, 0.0, 0.0) }
+    pub fn green() -> Self { Self::new(0.0, 1.0, 0.0) }
+    pub fn blue() -> Self { Self::new(0.0, 0.0, 1.0) }
 }
 
 impl Neg for Vec3 {

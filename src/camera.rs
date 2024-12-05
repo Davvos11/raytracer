@@ -2,13 +2,13 @@ use crate::color::{color_to_string, Color};
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::ray::Ray;
-use crate::rtweekend::{degrees_to_radians, random_double};
+use crate::rtweekend::{degrees_to_radians, random_double, Options};
 use crate::vec3::{Point3, Vec3};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::io;
 use std::io::Write;
 use crate::data::Data;
-
+use crate::hittable_list::HittableList;
 
 #[derive(Default)]
 pub struct Camera {
@@ -50,7 +50,7 @@ impl Camera {
         }
     }
 
-    pub fn render(&mut self, world: &dyn Hittable, writer: &mut impl Write, data: &mut Data) -> io::Result<()> {
+    pub fn render(&mut self, world: &HittableList, writer: &mut impl Write, data: &mut Data) -> io::Result<()> {
         self.initialise();
 
         // Display progress bar
@@ -69,7 +69,7 @@ impl Camera {
                 for _ in 0..self.samples_per_pixel {
                     data.add_primary_ray();
                     let r = self.get_ray(i, j);
-                    pixel_color += ray_color(&r, self.max_depth, world, data);
+                    pixel_color += ray_color(&r, self.max_depth, world, data, &world.options);
                 }
 
                 let pixel = color_to_string(&(self.pixel_samples_scale * pixel_color));
@@ -144,7 +144,7 @@ impl Camera {
 }
 
 
-fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data) -> Color {
+fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data, options: &Options) -> Color {
     // Stop gathering light if the ray bounce limit is exceeded
     if depth == 0 {
         return Color::default();
@@ -153,17 +153,26 @@ fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data) -> Colo
     let mut rec = HitRecord::default();
 
     if world.hit(r, Interval::new(0.001, f64::INFINITY), &mut rec, data) {
+        if rec.hits_aabb_edge {
+            return Color::red();
+        }
+
         let mut scattered = Ray::default();
         let mut attenuation = Color::default();
+
         if let Some(mat) = &rec.mat {
             if mat.scatter(r, &rec, &mut attenuation, &mut scattered) {
                 data.add_scatter_ray();
-                return attenuation * ray_color(&scattered, depth - 1, world, data);
+                return attenuation * ray_color(&scattered, depth - 1, world, data, options);
             }
         }
 
         Color::default()
     } else {
+        if rec.hits_aabb_edge {
+            return Color::new(1.0, 0.0, 0.0);
+        }
+
         let unit_direction = r.direction().unit();
         let a = 0.5 * (unit_direction.y() + 1.0);
         (1.0 - a) * Color::new(1.0, 1.0, 1.0) + a * Color::new(0.5, 0.7, 1.0)

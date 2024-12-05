@@ -4,17 +4,20 @@ use crate::data::Data;
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::ray::Ray;
-use crate::rtweekend::IntersectionAlgorithm;
+use crate::rtweekend::{IntersectionAlgorithm, Options};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 use crate::acceleration::grid::Grid;
 use crate::vec3::{Point3, Vec3};
+use std::time::Instant;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct HittableList {
     pub objects: Vec<Rc<dyn Hittable>>,
     #[serde(skip)]
     pub algorithm: IntersectionAlgorithm,
+    #[serde(skip)]
+    pub options: Options,
     #[serde(skip)]
     bvh: Option<Bvh>,
     #[serde(skip)]
@@ -23,13 +26,15 @@ pub struct HittableList {
 
 impl HittableList {
     pub fn new(object: Rc<dyn Hittable>) -> Self {
-        Self { objects: vec![object], algorithm: Default::default(), bvh: None, grid: None }
+        Self { objects: vec![object], algorithm: Default::default(), options: Default::default(), bvh: None, grid: None }
     }
 
     pub fn init(&mut self) {
         match self.algorithm {
             IntersectionAlgorithm::BVH => {
-                self.bvh = Some(Bvh::new(self.objects.clone()));
+                let t = Instant::now();
+                self.bvh = Some(Bvh::new(self.objects.clone(), &self.options));
+                eprintln!("BVH constructed in {:3.2?}", t.elapsed())
             }
             IntersectionAlgorithm::Grid => {
                 self.grid = Some(Grid::new(self.objects.clone(), Vec3::new(100.0, 100.0, 100.0), Point3::new(-100.0, -100.0, -100.0), Point3::new(100.0, 100.0, 100.0), Point3::new(200.0, 200.0, 200.0)));
@@ -66,7 +71,8 @@ impl Hittable for HittableList {
             IntersectionAlgorithm::BVH => {
                 if let Some(bvh) = &self.bvh {
                     if let Some(root) = bvh.root() {
-                        if root.hit(r, ray_t, bvh, rec, data) {
+                        let root_hit = root.hit_aabb(r, ray_t, rec, data, &self.options).is_some();
+                        if root_hit && root.hit(r, ray_t, bvh, rec, data, &self.options) {
                             return true;
                         }
                     }
@@ -94,6 +100,10 @@ impl Hittable for HittableList {
             (aabb.min.z() + aabb.max.z()) / 2.0,
         )
     }
+
+    fn surface_area(&self) -> f64 {
+        objects_surface_area(&self.objects)
+    }
 }
 
 pub fn objects_to_aabb(objects: &[Rc<dyn Hittable>]) -> AABB {
@@ -106,4 +116,8 @@ pub fn objects_to_aabb(objects: &[Rc<dyn Hittable>]) -> AABB {
     } else {
         AABB::default()
     }
+}
+
+pub fn objects_surface_area(objects: &[Rc<dyn Hittable>]) -> f64 {
+    objects.iter().map(|o|o.surface_area()).sum()
 }

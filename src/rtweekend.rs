@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter};
 use std::path::Path;
 use clap::ValueEnum;
 use rand::Rng;
+use crate::rtweekend::AlgorithmOptions::{BvhNaive, BvhSahPlane, BvhSahPosition};
 
 #[derive(Default, Copy, Clone, ValueEnum)]
 pub enum IntersectionAlgorithm {
@@ -9,6 +10,44 @@ pub enum IntersectionAlgorithm {
     Naive,
     BVH,
     Grid
+}
+
+#[derive(Default, Clone,Debug, Eq, PartialEq)]
+pub struct Options {
+    pub options: Vec<AlgorithmOptions>,
+    pub draw_boxes: bool,
+}
+
+impl Options {
+    pub fn new(alg_options: Vec<AlgorithmOptions>) -> Self {
+        Self {
+            draw_boxes: alg_options.contains(&AlgorithmOptions::DrawBoxes),
+            options: alg_options,
+        }
+    }
+}
+
+#[derive(Copy, Clone, ValueEnum, Debug, Eq, PartialEq)]
+pub enum AlgorithmOptions {
+    // BVH options:
+    /// Naive BVH, always split on the x plane and position halfway
+    BvhNaive,
+    /// BVH with SAH but only to determine the plane, not the split position
+    BvhSahPlane,
+    /// BVH with SAH for the plane and the split position (default)
+    BvhSahPosition,
+    /// Draw bounding boxes
+    DrawBoxes
+}
+const BVH_OPTIONS: &[AlgorithmOptions] = &[BvhNaive, BvhSahPlane, BvhSahPosition];
+
+pub fn check_valid_options(options: &[AlgorithmOptions]) -> Option<String> {
+    // Only one of the different Bvh options is allowed
+    let bvh_options = options.iter().filter(|&x| BVH_OPTIONS.contains(x));
+    if bvh_options.clone().count() > 1 {
+        return Some(format!("Can't have the following options at the same time: {:?}", bvh_options.collect::<Vec<_>>()));
+    }
+    None
 }
 
 impl Display for IntersectionAlgorithm {
