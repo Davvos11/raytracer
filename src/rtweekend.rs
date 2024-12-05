@@ -6,8 +6,8 @@ use crate::rtweekend::AlgorithmOptions::{BvhNaive, BvhSahPlane, BvhSahPosition};
 
 #[derive(Default, Copy, Clone, ValueEnum)]
 pub enum IntersectionAlgorithm {
-    #[default]
     Naive,
+    #[default]
     BVH,
 }
 

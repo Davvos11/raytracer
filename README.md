@@ -6,13 +6,25 @@
 ## Usage
 ```shell
 cargo run --release -- scenes/weekend-final.json # Or another json scene
+cargo run --release -- scenes/dragon_recon/dragon_vrip_res4.ply --format ply # Or another ply scene
 ```
-This will load a scene from a json file and render it to the `output` folder.
-```sh
+This will load a scene from a file and render it to the `output` folder.
+```shell
 cargo run --release -- 
 ```
 This will generate a new scene based on the code in `main.rs` (e.g. `let (world, filename) = scenes::simple_fuzzy_metal();`)  
 It will write the scene as json to the `scenes` folder. (and also render to the `output` folder)
+
+There are various possible options, most importantly, the algorithm for acceleration can be specified using
+`--algorithm <ALGORITHM>`. Possible values are `naive` or `bvh`.
+
+More options can be added using the `-o <OPTION>` flag.
+
+For example `-o draw-boxes` draws the BVH bounding boxes.
+
+```shell
+cargo run --release -- --help # For a list of all options
+```
 
 ## Features / implementation details
 - [x] All features from [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
