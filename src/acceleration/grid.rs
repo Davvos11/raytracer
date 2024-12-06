@@ -1,9 +1,12 @@
 use std::ops::Add;
 use std::rc::Rc;
 use crate::acceleration::aabb::AABB;
-use crate::hittable::Hittable;
+use crate::acceleration::bvh::Bvh;
+use crate::data::Data;
+use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::ray::Ray;
+use crate::rtweekend::Options;
 use crate::vec3::{Point3, Vec3};
 
 // http://www.cse.yorku.ca/~amana/research/grid.pdf used for traversal per ray
@@ -67,6 +70,9 @@ impl Grid {
             return ray.at(max)
         }
         
+        eprintln!("happened with gridbox {} {} {} : {} {} {}", grid_box.aabb.min.x(), grid_box.aabb.min.y(), grid_box.aabb.min.z(), grid_box.aabb.max.x(), grid_box.aabb.max.y(), grid_box.aabb.max.z());
+        eprintln!("with ray {} {} {} to {} {} {}", ray.origin().x(), ray.origin().y(), ray.origin().z(), ray.direction().x(), ray.direction().y(), ray.direction().z());
+        
         panic!("it should be impossible to get here")
     }
     
@@ -98,27 +104,30 @@ impl Grid {
         
         self.get_grid_box_from_point(point)
     }
+
+    pub fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, options: &Options) -> bool {
+        self.traverse(r, ray_t, rec, data, options)
+    }
     
     /// Traverses the grid until the gridbox containing the object the ray intersects with is found
-    pub fn traverse(&self, ray: &Ray) -> Option<&GridBox> {
+    pub fn traverse(&self, ray: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, options: &Options) -> bool {
         if let Some(grid_box) = self.get_box_enter(ray) {
             let mut xyz: Vec3 = grid_box.aabb.min;
             let step: Vec3 = self.step(ray);
             let mut t_max: Vec3 = Self::get_tmax(grid_box, ray);
             let t_delta: Vec3 = self.get_tdelta(ray);
-            let mut list: Option<&GridBox> = None;
             loop {
                 if t_max.x() < t_max.y() {
                     if t_max.x() < t_max.z() {
                         xyz += Vec3::new(step.x(), 0.0, 0.0);
                         if self.outside(xyz) {
-                            break;
+                            return false;
                         }
                         t_max += Vec3::new(t_delta.x(), 0.0, 0.0);
                     } else {
                         xyz += Vec3::new(0.0, 0.0, step.z());
                         if self.outside(xyz) {
-                            break;
+                            return false;
                         }
                         t_max += Vec3::new(0.0, 0.0, t_delta.z());
                     }
@@ -126,28 +135,28 @@ impl Grid {
                     if (t_max.y() < t_max.z()) {
                         xyz += Vec3::new(0.0, step.y(), 0.0);
                         if self.outside(xyz) {
-                            break;
+                            return false;
                         }
                         t_max += Vec3::new(0.0, t_delta.y(), 0.0);
                     } else {
                         xyz += Vec3::new(0.0, 0.0, step.z());
                         if self.outside(xyz) {
-                            break;
+                            return false;
                         }
                         t_max += Vec3::new(0.0, 0.0, t_delta.z());
                     }
                 }
-                list = self.get_grid_box_from_point(xyz);
-                if let Some(current_box) = list {
+                if let Some(current_box) = self.get_grid_box_from_point(xyz) {
                     if !current_box.objects.is_empty() {
-                        break; // todo: check if the intersection is inside this object
+                        if current_box.hit(self, ray, ray_t, rec, data, options) {
+                            return true;
+                        }
                     }
                 }
                 
             }
-            return list;
         }
-        None
+        false
     }
     
     pub fn outside(&self, t_max: Vec3) -> bool {
@@ -209,6 +218,26 @@ impl GridBox {
         for (i, obj) in objects.iter().enumerate() {
             self.try_add(obj.to_aabb(), i);
         }
+    }
+    
+    pub fn hit(&self, grid: &Grid, ray: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, _options: &Options) -> bool {
+        let mut hit_anything = false;
+        data.add_gridbox_intersection_check();
+        let mut rec_copy = rec.clone();
+        for object in &self.objects[..] {
+            let hittable = &grid.objects[*object];
+            if hittable.hit(ray, ray_t, &mut rec_copy, data) {
+                if let Some(hit_gridbox) = grid.get_grid_box_from_point(ray.at(rec_copy.t)) {
+                    if std::ptr::eq(self, hit_gridbox) {
+                        hit_anything = true; // no need for further investigation as the nearest point will definitely be in this box
+                    }
+                }
+            }
+        }
+        if hit_anything {
+            *rec = rec_copy.clone();
+        }
+        hit_anything
     }
     
 }

@@ -67,7 +67,8 @@ fn main() {
         (world, filename)
     };
 
-    world.algorithm = args.algorithm;
+    //world.algorithm = args.algorithm;
+    world.algorithm = IntersectionAlgorithm::Grid;
     world.options = options;
 
     let mut cam = Camera::new();

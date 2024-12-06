@@ -5,6 +5,7 @@ pub struct Data {
     scatter_rays: usize,
     intersection_checks: usize,
     overlapping_aabb: usize,
+    gridbox_intersection_checks: usize
 }
 
 impl Data {
@@ -51,4 +52,6 @@ impl Data {
     pub fn add_overlapping_aabb(&mut self) {
         self.overlapping_aabb += 1;
     }
+    
+    pub fn add_gridbox_intersection_check(&mut self) { self.gridbox_intersection_checks += 1; }
 }

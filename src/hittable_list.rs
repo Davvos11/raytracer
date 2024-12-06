@@ -37,7 +37,9 @@ impl HittableList {
                 eprintln!("BVH constructed in {:3.2?}", t.elapsed())
             }
             IntersectionAlgorithm::Grid => {
+                let t = Instant::now();
                 self.grid = Some(Grid::new(self.objects.clone(), Vec3::new(100.0, 100.0, 100.0), Point3::new(-100.0, -100.0, -100.0), Point3::new(100.0, 100.0, 100.0), Point3::new(200.0, 200.0, 200.0)));
+                eprintln!("Grid constructed in {:3.2?}", t.elapsed())
             }
             _ => {}
         }
@@ -82,7 +84,11 @@ impl Hittable for HittableList {
                 }
             }
             IntersectionAlgorithm::Grid => {
-                true // todo: do smth here
+                if let Some(grid) = &self.grid {
+                    grid.hit(r, ray_t, rec, data, &self.options)
+                } else {
+                    panic!("Please run Grid::new first")
+                }
             }
         }
     }

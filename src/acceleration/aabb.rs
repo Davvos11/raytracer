@@ -100,28 +100,8 @@ impl AABB {
         )
     }
     
-    /// Checks if self is inside other, https://math.stackexchange.com/questions/1472049/check-if-a-point-is-inside-a-rectangular-shaped-area-3d
-    /// TODO: probably won't work properly
-    /// TODO: trying smth else
+    /// Checks if self is inside other
     pub fn inside(&self, other: AABB) -> bool {
-        /*let p1 = other.min;
-        let p2 = Point3::new(p1.x(), p1.y(), other.max.z());
-        let p4 = Point3::new(other.max.x(), p1.y(), p1.z());
-        let p5 = Point3::new(p1.x(), other.max.y(), p1.z());
-        let u = p1 - p2;
-        let v = p1 - p4;
-        let w = p1 - p5;
-        for vec in [self.min, self.max] {
-            let dot1 = u.dot(&vec);
-            let dot2 = v.dot(&vec);
-            let dot3 = w.dot(&vec);
-            if u.dot(&p1) <= dot1 && dot1 <= u.dot(&p2)
-                && v.dot(&p1) <= dot2 && dot2 <= v.dot(&p4)
-                && w.dot(&p1) <= dot3 && dot3 <= w.dot(&p5) {
-                return true;
-            }
-        }*/
-
         self.max.x() >= other.min.x() && self.min.x() <= other.max.x()
             && self.max.y() >= other.min.y() && self.min.y() <= other.max.y()
             && self.max.z() >= other.min.z() && self.min.z() <= other.max.z()
