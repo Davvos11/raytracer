@@ -51,6 +51,32 @@ impl AABB {
         }
         Some(ray_t.min)
     }
+    
+    // Duplicate of the function above to get the exit point as well
+    pub fn enter_and_exit(&self, ray: &Ray, ray_t: Interval) -> Option<(f64, f64)> {
+        // Make a copy for local use
+        let mut ray_t = ray_t;
+        for axis in 0..3 {
+            let ax = self.axis_interval(axis);
+            let ad_inverse = 1.0 / ray.direction()[axis];
+
+            let t0 = (ax.min - ray.origin()[axis]) * ad_inverse;
+            let t1 = (ax.max - ray.origin()[axis]) * ad_inverse;
+
+            if t0 < t1 {
+                if t0 > ray_t.min { ray_t.min = t0; }
+                if t1 < ray_t.max { ray_t.max = t1; }
+            } else {
+                if t1 > ray_t.min { ray_t.min = t1; }
+                if t0 < ray_t.max { ray_t.max = t0; }
+            }
+
+            // If the interval is now empty, we missed the AABB on this axis
+            if ray_t.max <= ray_t.min { return None; }
+        }
+
+        Some((ray_t.min, ray_t.max))
+    }
 
     fn is_edge(&self, point: Point3) -> bool {
         (0..3)

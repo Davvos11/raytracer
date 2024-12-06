@@ -2,6 +2,7 @@ use std::ops::Add;
 use std::rc::Rc;
 use crate::acceleration::aabb::AABB;
 use crate::hittable::Hittable;
+use crate::interval::Interval;
 use crate::ray::Ray;
 use crate::vec3::{Point3, Vec3};
 
@@ -60,34 +61,35 @@ impl Grid {
         (x as f64 + y as f64 * size_x + z as f64 * size_x * size_y) as usize
     }
     
-    /// Finds the grid box that a ray enters
-    pub fn get_grid_box_origin_from_ray(&self, ray: Ray) -> Option<&GridBox> {
-        panic!("implement me")
-    }
-    
-    /// Finds the point at which the ray enters the grid box
-    pub fn get_point_enter(grid_box: &GridBox, ray: &Ray) -> Vec3 {
-        panic!("implement me")
-    }
-    
-    /// Gets the starting and ending t for when the ray hits the box
-    pub fn get_start_and_end_t(grid_box: &GridBox, ray: &Ray) -> (f64, f64) {
-        panic!("implement me")
-    }
-    
     /// Gets value of t for which the ray crosses the first voxel boundary for x, y and z
     pub fn get_tmax(grid_box: &GridBox, ray: &Ray) -> Vec3 {
-        panic!("implement me")
+        if let Some((_min, max)) = grid_box.aabb.enter_and_exit(ray, Interval::new(0.001, f64::INFINITY)) {
+            return ray.at(max)
+        }
+        
+        panic!("it should be impossible to get here")
     }
     
     /// Gets the units of t for how far along each axis we need to move to cross a boundary
     pub fn get_tdelta(&self, ray: &Ray) -> Vec3 {
-        panic!("implement me")
+        let x = (ray.origin().x() - self.box_size.x()) / ray.direction().x();
+        let y = (ray.origin().y() - self.box_size.y()) / ray.direction().y();
+        let z = (ray.origin().z() - self.box_size.z()) / ray.direction().z();
+        
+        Vec3::new(x, y, z)
     }
     
     /// Gets the first box the ray encounters, can be the box the ray starts inside
     pub fn get_box_enter(&self, ray: &Ray) -> Option<&GridBox> {
-        panic!("implement me")
+        if let Some(grid_box) = self.get_grid_box_from_point(*ray.origin()) {
+            // origin is inside a box
+            return Some(grid_box)
+        }
+        if let Some((min, _max)) = self.aabb.enter_and_exit(ray, Interval::new(0.001, f64::INFINITY)) {
+            // origin is outside but the ray hits the outer aabb
+            return self.get_grid_box_from_ray(ray, min);
+        }
+        None
     }
     
     /// Finds the grid box that a given point on a ray is in
@@ -100,8 +102,8 @@ impl Grid {
     /// Traverses the grid until the gridbox containing the object the ray intersects with is found
     pub fn traverse(&self, ray: &Ray) -> Option<&GridBox> {
         if let Some(grid_box) = self.get_box_enter(ray) {
-            let mut xyz: Vec3 = Self::get_point_enter(grid_box, ray);
-            let step: Vec3 = Self::step(ray);
+            let mut xyz: Vec3 = grid_box.aabb.min;
+            let step: Vec3 = self.step(ray);
             let mut t_max: Vec3 = Self::get_tmax(grid_box, ray);
             let t_delta: Vec3 = self.get_tdelta(ray);
             let mut list: Option<&GridBox> = None;
@@ -152,18 +154,18 @@ impl Grid {
         !self.aabb.point_inside(t_max)
     }
     
-    pub fn step(ray: &Ray) -> Vec3 {
-        let mut stepx = 1.0;
+    pub fn step(&self, ray: &Ray) -> Vec3 {
+        let mut stepx = self.box_size.x();
         if ray.direction().x() < 0.0 {
-            stepx = -1.0;
+            stepx *= -1.0;
         }
-        let mut stepy = 1.0;
+        let mut stepy = self.box_size.y();
         if ray.direction().y() < 0.0 {
-            stepy = -1.0;
+            stepy *= -1.0;
         }
-        let mut stepz = 1.0;
+        let mut stepz = self.box_size.z();
         if ray.direction().z() < 0.0 {
-            stepz = -1.0;
+            stepz *= -1.0;
         }
         Vec3::new(stepx, stepy, stepz)
     }
@@ -199,7 +201,6 @@ impl GridBox {
         let aabb = self.aabb.clone();
         let other = object.clone(); // todo: I'm too new to rust to know a better solution lol
         if aabb.inside(other) || object.inside(aabb) {
-            //println!("it should be in there");
             self.objects.push(array_pos);
         }
     }
