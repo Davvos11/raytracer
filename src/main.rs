@@ -93,7 +93,7 @@ fn main() {
     cam.focus_dist = 1.0;
     
     // Open file
-    let filename = get_output_filename(&filename, &args.algorithm)
+    let filename = get_output_filename(&filename, &world.algorithm)
         .expect("Could not parse filename");
     let mut file = File::create(&filename)
         .expect("Could not open image file");
@@ -112,6 +112,7 @@ fn main() {
     println!("Total scatter rays: {}", data.scatter_rays());
     println!("Overlapping AABBs: {}", data.overlapping_aabb());
     println!("Total intersection checks: {}", data.intersection_checks());
+    println!("Total gridbox intersection checks: {}", data.gridbox_intersection_checks());
     println!("Total seconds: {}", data.seconds());
 }
 

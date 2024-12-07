@@ -53,5 +53,7 @@ impl Data {
         self.overlapping_aabb += 1;
     }
     
+    pub fn gridbox_intersection_checks(&self) -> usize { self.intersection_checks }
+    
     pub fn add_gridbox_intersection_check(&mut self) { self.gridbox_intersection_checks += 1; }
 }
