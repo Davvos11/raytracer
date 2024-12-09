@@ -8,7 +8,7 @@ use crate::color::Color;
 use crate::data::Data;
 use crate::material::Lambertian;
 use crate::parser::parse_ply;
-use crate::rtweekend::{check_valid_options, get_output_filename, AlgorithmOptions, FileFormat, IntersectionAlgorithm, Options};
+use crate::rtweekend::{check_valid_options, get_output_filename, AlgorithmOptions, Cli, FileFormat, IntersectionAlgorithm, Options};
 
 mod vec3;
 mod color;
@@ -25,21 +25,8 @@ mod triangle;
 mod acceleration;
 mod data;
 mod parser;
+mod test;
 
-#[derive(Parser)]
-struct Cli {
-    /// The world / scene file
-    filename: Option<String>,
-    #[arg(long, value_enum, default_value_t = FileFormat::default())]
-    /// The input file format
-    format: FileFormat,
-    #[arg(long, value_enum, default_value_t = IntersectionAlgorithm::default())]
-    /// The intersection algorithm
-    algorithm: IntersectionAlgorithm,
-    /// Options for the algorithm
-    #[arg(value_enum, long, short)]
-    options: Vec<AlgorithmOptions>,
-}
 
 fn main() {
     // Parse CLI arguments
@@ -47,6 +34,10 @@ fn main() {
     if let Some(error) = check_valid_options(&args.options) {
         panic!("{error}")
     }
+    run(args)
+}
+
+fn run(args: Cli) {
     let options = Options::new(args.options.clone());
 
     let (mut world, filename) = if let Some(filename) = args.filename {
@@ -114,7 +105,7 @@ fn main() {
 
 
     // Open file
-    let out_filename = get_output_filename(&filename, &args.algorithm)
+    let out_filename = get_output_filename(&filename, &args.algorithm, &options)
         .expect("Could not parse filename");
     let mut file = File::create(&out_filename)
         .expect("Could not open image file");
@@ -125,15 +116,15 @@ fn main() {
     // Initialise structures like BVH
     world.init();
     data.set_init_time(start.elapsed().as_secs_f64());
-    
+
     // Render pixels
     cam.render(&world, &mut file, &mut data)
         .expect("Could not write to image file");
     data.set_seconds(start.elapsed().as_secs_f64());
-    
+
     data.print();
     data.write_to_csv(&"output/stats.csv".into());
-    
+
     eprintln!("Wrote image to {out_filename}. Duration {:3.2?}", start.elapsed());
 }
 
