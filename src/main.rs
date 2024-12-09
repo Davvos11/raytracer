@@ -47,7 +47,7 @@ fn main() {
     if let Some(error) = check_valid_options(&args.options) {
         panic!("{error}")
     }
-    let options = Options::new(args.options);
+    let options = Options::new(args.options.clone());
 
     let (mut world, filename) = if let Some(filename) = args.filename {
         match args.format {
@@ -85,7 +85,7 @@ fn main() {
     };
 
     world.algorithm = args.algorithm;
-    world.options = options;
+    world.options = options.clone();
 
     let mut cam = Camera::new();
     cam.aspect_ratio = 16.0 / 9.0;
@@ -114,25 +114,26 @@ fn main() {
 
 
     // Open file
-    let filename = get_output_filename(&filename, &args.algorithm)
+    let out_filename = get_output_filename(&filename, &args.algorithm)
         .expect("Could not parse filename");
-    let mut file = File::create(&filename)
+    let mut file = File::create(&out_filename)
         .expect("Could not open image file");
 
-    let mut data: Data = Data::new();
+    let mut data: Data = Data::new(filename.to_string(), world.objects.len(), args.algorithm, options, cam.image_width, cam.image_height(), cam.samples_per_pixel, cam.max_depth);
 
     let start = Instant::now();
     // Initialise structures like BVH
     world.init();
+    data.set_init_time(start.elapsed().as_secs_f64());
+    
     // Render pixels
     cam.render(&world, &mut file, &mut data)
         .expect("Could not write to image file");
-    eprintln!("Wrote image to {filename}. Duration {:3.2?}", start.elapsed());
     data.set_seconds(start.elapsed().as_secs_f64());
-    println!("Total primary rays: {}", data.primary_rays());
-    println!("Total scatter rays: {}", data.scatter_rays());
-    println!("Overlapping AABBs: {}", data.overlapping_aabb());
-    println!("Total intersection checks: {}", data.intersection_checks());
-    println!("Total seconds: {}", data.seconds());
+    
+    data.print();
+    data.write_to_csv(&"output/stats.csv".into());
+    
+    eprintln!("Wrote image to {out_filename}. Duration {:3.2?}", start.elapsed());
 }
 

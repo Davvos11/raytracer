@@ -2,9 +2,10 @@ use std::fmt::{Display, Formatter};
 use std::path::Path;
 use clap::ValueEnum;
 use rand::Rng;
+use serde::{Serialize, Serializer};
 use crate::rtweekend::AlgorithmOptions::{BvhNaive, BvhSahPlane, BvhSahPosition};
 
-#[derive(Default, Copy, Clone, ValueEnum)]
+#[derive(Default, Copy, Clone, ValueEnum, Serialize)]
 pub enum IntersectionAlgorithm {
     Naive,
     #[default]
@@ -18,10 +19,20 @@ pub enum FileFormat {
     PLY,
 }
 
-#[derive(Default, Clone,Debug, Eq, PartialEq)]
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
 pub struct Options {
     pub options: Vec<AlgorithmOptions>,
     pub draw_boxes: bool,
+}
+
+impl Serialize for Options {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let joined = self.options.iter().map(|x| format!("{x:?}")).collect::<Vec<_>>().join("_");
+        serializer.serialize_str(&joined)
+    }
 }
 
 impl Options {
@@ -33,7 +44,7 @@ impl Options {
     }
 }
 
-#[derive(Copy, Clone, ValueEnum, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, ValueEnum, Debug, Eq, PartialEq, Serialize)]
 pub enum AlgorithmOptions {
     // BVH options:
     /// Naive BVH, always split on the x plane and position halfway
@@ -43,7 +54,7 @@ pub enum AlgorithmOptions {
     /// BVH with SAH for the plane and the split position (default)
     BvhSahPosition,
     /// Draw bounding boxes
-    DrawBoxes
+    DrawBoxes,
 }
 const BVH_OPTIONS: &[AlgorithmOptions] = &[BvhNaive, BvhSahPlane, BvhSahPosition];
 

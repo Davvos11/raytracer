@@ -189,9 +189,10 @@ impl BvhNode {
     }
 
     #[allow(clippy::collapsible_if)]
+    /// This method does NOT run self.hit_aabb(), please run that first to avoid unnecessary traversal
     pub fn hit(&self, r: &Ray, ray_t: Interval, bvh: &Bvh, rec: &mut HitRecord, data: &mut Data, options: &Options) -> bool {
-        // if self.hit_aabb(r, ray_t, rec, data).is_none() { return false }
-
+        data.add_traversal_step();
+        
         let mut hit_anything = false;
         let mut closest_so_far = ray_t.max;
 

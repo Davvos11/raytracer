@@ -69,7 +69,7 @@ impl Camera {
                 for _ in 0..self.samples_per_pixel {
                     data.add_primary_ray();
                     let r = self.get_ray(i, j);
-                    pixel_color += ray_color(&r, self.max_depth, world, data, &world.options);
+                    pixel_color += ray_color(&r, self.max_depth, world, data);
                 }
 
                 let pixel = color_to_string(&(self.pixel_samples_scale * pixel_color));
@@ -80,9 +80,13 @@ impl Camera {
         Ok(())
     }
 
+    pub fn image_height(&self) -> u32 {
+        (self.image_width as f64 / self.aspect_ratio) as u32
+    }
+    
     fn initialise(&mut self) {
         // Image setup
-        self.image_height = (self.image_width as f64 / self.aspect_ratio) as u32;
+        self.image_height = self.image_height();
         self.image_height = if self.image_height < 1 { 1 } else { self.image_height };
 
         self.pixel_samples_scale = 1.0 / self.samples_per_pixel as f64;
@@ -144,7 +148,7 @@ impl Camera {
 }
 
 
-fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data, options: &Options) -> Color {
+fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data) -> Color {
     // Stop gathering light if the ray bounce limit is exceeded
     if depth == 0 {
         return Color::default();
@@ -163,7 +167,7 @@ fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data, options
         if let Some(mat) = &rec.mat {
             if mat.scatter(r, &rec, &mut attenuation, &mut scattered) {
                 data.add_scatter_ray();
-                return attenuation * ray_color(&scattered, depth - 1, world, data, options);
+                return attenuation * ray_color(&scattered, depth - 1, world, data);
             }
         }
 
