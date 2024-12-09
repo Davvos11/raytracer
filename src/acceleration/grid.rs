@@ -67,13 +67,20 @@ impl Grid {
     
     /// Gets value of t for which the ray crosses the first voxel boundary for x, y and z
     pub fn get_tmax(&self, grid_box: &GridBox, ray: &Ray) -> Vec3 {
-        let next_box = grid_box.aabb.min + *ray.direction() * self.box_size + self.origin;
+        // make ray origin be minus the origin
+        let x_origin = (ray.origin().x() / self.box_size.x() - (ray.origin().x() / self.box_size.x()).floor()) * self.box_size.x();
+        let y_origin = (ray.origin().y() / self.box_size.y() - (ray.origin().y() / self.box_size.y()).floor()) * self.box_size.y();
+        let z_origin = (ray.origin().z() / self.box_size.z() - (ray.origin().z() / self.box_size.z()).floor()) * self.box_size.z();
         
-        let x = (next_box.x() - ray.origin().x()) / ray.direction().x();
-        let y = (next_box.y() -  ray.origin().y()) / ray.direction().y();
-        let z = (next_box.z() - ray.origin().z()) / ray.direction().z();
-
-        Vec3::new(x, y, z)
+        // then look at for what t it is the box width
+        let t_x = (self.box_size.x() - x_origin) / ray.direction().x();
+        let t_y = (self.box_size.y() - y_origin) / ray.direction().y();
+        let t_z = (self.box_size.z() - z_origin) / ray.direction().z();
+        
+        // then do ray.at(t) - ray.origin to find t_max - maybe not?
+        
+        
+        Vec3::new(t_x, t_y, t_z)
     }
     
     /// Gets the units of t for how far along each axis we need to move to cross a boundary
@@ -123,7 +130,9 @@ impl Grid {
             let step: Vec3 = self.step(ray);
             let mut t_max: Vec3 = self.get_tmax(grid_box, ray);
             let t_delta: Vec3 = self.get_tdelta(ray);
+            let mut xyz_hist = Vec::new();
             loop {
+                xyz_hist.push(xyz.clone());
                 /*let mut rec_copy = rec.clone();
                 if self.check(ray, ray_t, &mut rec_copy, data) {
                     eprintln!("raycheck {} {} {} to {} {} {}", ray.origin().x(), ray.origin().y(), ray.origin().z(), ray.direction().x(), ray.direction().y(), ray.direction().z());
@@ -145,6 +154,7 @@ impl Grid {
                                 eprintln!("{}, {}, {}", step.x(), step.y(), step.z());
                                 eprintln!("{}, {}, {}", t_max.x(), t_max.y(), t_max.z());
                                 eprintln!("{}, {}, {}", t_delta.x(), t_delta.y(), t_delta.z());
+                                eprintln!("hist: {:?}", xyz_hist);
                             }
                             return false;
                         }
@@ -160,6 +170,7 @@ impl Grid {
                                 eprintln!("{}, {}, {}", step.x(), step.y(), step.z());
                                 eprintln!("{}, {}, {}", t_max.x(), t_max.y(), t_max.z());
                                 eprintln!("{}, {}, {}", t_delta.x(), t_delta.y(), t_delta.z());
+                                eprintln!("hist: {:?}", xyz_hist);
                             }
                             return false;
                         }
@@ -177,6 +188,7 @@ impl Grid {
                                 eprintln!("{}, {}, {}", step.x(), step.y(), step.z());
                                 eprintln!("{}, {}, {}", t_max.x(), t_max.y(), t_max.z());
                                 eprintln!("{}, {}, {}", t_delta.x(), t_delta.y(), t_delta.z());
+                                eprintln!("hist: {:?}", xyz_hist);
                             }
                             return false;
                         }
@@ -192,6 +204,7 @@ impl Grid {
                                 eprintln!("{}, {}, {}", step.x(), step.y(), step.z());
                                 eprintln!("{}, {}, {}", t_max.x(), t_max.y(), t_max.z());
                                 eprintln!("{}, {}, {}", t_delta.x(), t_delta.y(), t_delta.z());
+                                eprintln!("hist: {:?}", xyz_hist);
                             }
                             return false;
                         }
@@ -217,15 +230,49 @@ impl Grid {
     pub fn check(&self, ray: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data) -> bool {
         let mut hr = rec.clone();
         let mut i = false;
-        for h in &self.objects[..] {
+        let mut thing = Vec::new();
+        let mut hits = Vec::new();
+        
+        for (j, h) in self.objects.iter().enumerate() {
             if h.hit(ray, ray_t, &mut hr, data) {
+                thing.push((h.to_aabb().min, h.to_aabb().max));
                 i = true;
+                hits.push(j);
             }
         }
         if i {
+            let mut box_list = Vec::new();
+            let mut prev = Vec3::new(-1000.0, -1000.0, -1000.0);
+            for k in 0..150 {
+                let pos = ray.at(k as f64);
+                if let Some(test_box) = self.get_grid_box_from_point(pos) {
+                    if test_box.aabb.min.x() as i32 != prev.x() as i32
+                        && test_box.aabb.min.y() as i32 != prev.y() as i32
+                        && test_box.aabb.min.z() as i32 != prev.z() as i32 {
+                        box_list.push(test_box.aabb.min);
+                        prev = test_box.aabb.min;
+                    }
+                } else {
+                    break;
+                }
+                
+            }
+            eprintln!("checking for next ray");
             *rec = hr.clone();
+            eprintln!("{:?}", thing);
+            eprintln!("{:?}", hits);
+            self.print_boxes(hits);
+            eprintln!("pathL {:?}", box_list);
         }
         i
+    }
+    
+    pub fn print_boxes(&self, hits: Vec<usize>) {
+        for (i, b) in self.boxes.iter().enumerate() {
+            if !b.objects.is_empty() && hits.contains(&i){
+                eprintln!("{}: {:?} {:?}", i, b.aabb.min, b.objects);
+            }
+        }
     }
     
     pub fn outside(&self, t_max: Vec3) -> bool {
