@@ -101,7 +101,7 @@ impl AABB {
     }
     
     /// Checks if self is inside other
-    pub fn inside(&self, other: AABB) -> bool {
+    pub fn inside(&self, other: &AABB) -> bool {
         self.max.x() >= other.min.x() && self.min.x() <= other.max.x()
             && self.max.y() >= other.min.y() && self.min.y() <= other.max.y()
             && self.max.z() >= other.min.z() && self.min.z() <= other.max.z()

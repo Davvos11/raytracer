@@ -38,7 +38,7 @@ impl HittableList {
             }
             IntersectionAlgorithm::Grid => {
                 let t = Instant::now();
-                self.grid = Some(Grid::new(self.objects.clone(), Vec3::new(100.0, 100.0, 100.0), Point3::new(-100.0, -100.0, -100.0), Point3::new(100.0, 100.0, 100.0), Point3::new(200.0, 200.0, 200.0)));
+                self.grid = Some(Grid::new(self.objects.clone(), Vec3::new(25.0, 25.0, 25.0), Point3::new(-100.0, -100.0, -100.0), Point3::new(100.0, 100.0, 100.0), Point3::new(200.0, 200.0, 200.0)));
                 eprintln!("Grid constructed in {:3.2?}", t.elapsed())
             }
             _ => {}
