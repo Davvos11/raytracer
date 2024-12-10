@@ -5,9 +5,18 @@ use crate::ray::Ray;
 use crate::rtweekend::random_double;
 use crate::vec3::Vec3;
 
+#[derive(Debug, Eq, PartialEq)]
+pub enum MaterialType {
+    Lambertian,
+    Metal,
+    Dielectric,
+}
+
 #[typetag::serde(tag = "type")]
 pub trait Material {
     fn scatter(&self, r_in: &Ray, hit_record: &HitRecord, attenuation: &mut Color, scattered: &mut Ray) -> bool;
+
+    fn get_type(&self) -> MaterialType;
 }
 
 #[derive(Serialize, Deserialize)]
@@ -35,6 +44,10 @@ impl Material for Lambertian {
         *attenuation = self.albedo;
         true
     }
+
+    fn get_type(&self) -> MaterialType {
+        MaterialType::Lambertian
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -58,6 +71,10 @@ impl Material for Metal {
         *attenuation = self.albedo;
 
         scattered.direction().dot(&rec.normal) > 0.0
+    }
+
+    fn get_type(&self) -> MaterialType {
+        MaterialType::Metal
     }
 }
 
@@ -93,6 +110,10 @@ impl Material for Dielectric {
 
         *scattered = Ray::new(rec.p, direction);
         true
+    }
+
+    fn get_type(&self) -> MaterialType {
+        MaterialType::Dielectric
     }
 }
 

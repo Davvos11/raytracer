@@ -6,7 +6,7 @@ use std::rc::Rc;
 use std::time::Instant;
 use crate::color::Color;
 use crate::data::Data;
-use crate::material::Lambertian;
+use crate::material::{Lambertian, MaterialType};
 use crate::parser::parse_ply;
 use crate::rtweekend::{check_valid_options, get_output_filename, AlgorithmOptions, Cli, FileFormat, IntersectionAlgorithm, Options};
 
@@ -26,7 +26,6 @@ mod acceleration;
 mod data;
 mod parser;
 mod test;
-
 
 fn main() {
     // Parse CLI arguments
@@ -103,6 +102,17 @@ fn run(args: Cli) {
     }
     cam.v_up = Vec3::new(0.0, 1.0, 0.0);
 
+    // Scene statistics
+    if args.stats {
+        let lambertian_materials = world.objects.iter().filter(|i| i.material_type() == Some(MaterialType::Lambertian)).count();
+        let metal_materials = world.objects.iter().filter(|i| i.material_type() == Some(MaterialType::Metal)).count();
+        let dielectric_materials = world.objects.iter().filter(|i| i.material_type() == Some(MaterialType::Dielectric)).count();
+
+        println!("Name & \\# Primitives & \\# Lambertian primitives & \\# Metal primitives & \\# Dieelectric primitives \\\\");
+        println!("{filename} & {} & {} & {} & {}\\\\",
+                 world.objects.len(), lambertian_materials, metal_materials, dielectric_materials);
+        return;
+    }
 
     // Open file
     let out_filename = get_output_filename(&filename, &args.algorithm, &options)

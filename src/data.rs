@@ -24,6 +24,7 @@ pub struct Data {
 }
 
 impl Data {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(filename: String, primitives: usize, algorithm: IntersectionAlgorithm, options: Options,
                image_width: u32, image_height: u32, samples_per_pixel: u32, max_depth: u32) -> Self {
         Self {

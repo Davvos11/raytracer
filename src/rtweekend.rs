@@ -5,7 +5,7 @@ use rand::Rng;
 use serde::{Serialize, Serializer};
 use crate::rtweekend::AlgorithmOptions::{BvhNaive, BvhSahPlane, BvhSahPosition};
 
-#[derive(Parser)]
+#[derive(Parser, Default)]
 pub struct Cli {
     /// The world / scene file
     pub filename: Option<String>,
@@ -18,15 +18,18 @@ pub struct Cli {
     /// Options for the algorithm
     #[arg(value_enum, long, short)]
     pub options: Vec<AlgorithmOptions>,
+    /// Print scene statistics (as LaTeX table row) and exit
+    #[arg(long)]
+    pub stats: bool
 }
 
+#[allow(unused)]
 impl Cli {
     pub fn new_from_json(filename: String) -> Self{
         Self {
             filename: Some(filename),
             format: FileFormat::Native,
-            algorithm: Default::default(),
-            options: Default::default(),
+            ..Default::default()
         }
     }
 
@@ -34,8 +37,7 @@ impl Cli {
         Self {
             filename: Some(filename),
             format: FileFormat::PLY,
-            algorithm: Default::default(),
-            options: Default::default(),
+            ..Default::default()
         }
     }
 
