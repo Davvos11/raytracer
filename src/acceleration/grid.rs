@@ -66,7 +66,7 @@ impl Grid {
     }
     
     /// Gets value of t for which the ray crosses the first voxel boundary for x, y and z
-    pub fn get_tmax(&self, grid_box: &GridBox, ray: &Ray) -> Vec3 {
+    pub fn get_tmax_old(&self, grid_box: &GridBox, ray: &Ray) -> Vec3 {
         // make ray origin be minus the origin
         
         // use mod to figure out how far along the ray the next boundary is
@@ -104,6 +104,26 @@ impl Grid {
         Vec3::new(t_x.abs(), t_y.abs(), t_z.abs())
     }
     
+    pub fn get_tmax(&self, grid_box: &GridBox, ray: &Ray) -> Vec3 {
+        let mut x_nearest = grid_box.aabb.min.x();
+        if ray.direction().x() >= 0.0 {
+            x_nearest = grid_box.aabb.max.x();
+        }
+        let mut y_nearest = grid_box.aabb.min.y();
+        if ray.direction().y() >= 0.0 {
+            y_nearest = grid_box.aabb.max.y();
+        }
+        let mut z_nearest = grid_box.aabb.min.z();
+        if ray.direction().z() >= 0.0 {
+            z_nearest = grid_box.aabb.max.z();
+        }
+        let t_x = (x_nearest - ray.origin().x()).abs() / ray.direction().x().abs();
+        let t_y = (y_nearest - ray.origin().y()).abs() / ray.direction().y().abs();
+        let t_z = (z_nearest - ray.origin().z()).abs() / ray.direction().z().abs();
+        
+        Vec3::new(t_x, t_y, t_z)
+    }
+    
     /// Gets the units of t for how far along each axis we need to move to cross a boundary
     pub fn get_tdelta(&self, ray: &Ray) -> Vec3 {
         let x = self.box_size.x() / ray.direction().x().abs();
@@ -135,7 +155,7 @@ impl Grid {
 
     pub fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, options: &Options) -> bool {
         let ray_unit = Ray::new(r.origin().clone(), r.direction().unit());
-        self.traverse_2(&ray_unit, ray_t, rec, data, options)
+        self.traverse(r, ray_t, rec, data, options)
     }
     
     /// Traverses the grid until the gridbox containing the object the ray intersects with is found
@@ -340,6 +360,32 @@ impl Grid {
         }
         
         
+        false
+    }
+    
+    pub fn traverse_brute(&self, ray: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, options: &Options) -> bool {
+        if let Some(cellBox) = self.get_box_enter(ray) {
+            let mut rec_copy = rec.clone();
+            let mut hit_anything = false;
+            if !cellBox.objects.is_empty() {
+                if cellBox.hit(self, ray, ray_t, &mut rec_copy, data, options) {
+                    *rec = rec_copy.clone();
+                    hit_anything = true;
+                }
+            }
+            
+            if !hit_anything {
+                for i in &self.boxes[..] {
+                    if !i.objects.is_empty() {
+                        if i.hit(self, ray, ray_t, &mut rec_copy, data, options) {
+                            *rec = rec_copy.clone();
+                            hit_anything = true;
+                        }
+                    }
+                }
+            }
+            return hit_anything;
+        }
         false
     }
     
