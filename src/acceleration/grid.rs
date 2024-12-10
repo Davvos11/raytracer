@@ -126,9 +126,30 @@ impl Grid {
     
     /// Gets the units of t for how far along each axis we need to move to cross a boundary
     pub fn get_tdelta(&self, ray: &Ray) -> Vec3 {
-        let x = self.box_size.x() / ray.direction().x().abs();
-        let y = self.box_size.y() / ray.direction().y().abs();
-        let z = self.box_size.z() / ray.direction().z().abs();
+        let epsilon = 1e-6;
+        let small_threshold = 1e-10;
+        let mut x = self.box_size.x() / ray.direction().x().abs();
+        if ray.direction().x().abs() < epsilon {
+            x = self.box_size.x() / epsilon;
+            if ray.direction().x().abs() < small_threshold {
+                x = 1e-11;
+            }
+        }
+        let mut y = self.box_size.y() / ray.direction().y().abs();
+        if ray.direction().y().abs() < epsilon {
+            y = self.box_size.y() / epsilon;
+            if ray.direction().y().abs() < small_threshold {
+                y = 1e-11;
+            }
+            
+        }
+        let mut z = self.box_size.z() / ray.direction().z().abs();
+        if ray.direction().z().abs() < epsilon {
+            z = self.box_size.z() / epsilon;
+            if ray.direction().z().abs() < small_threshold {
+                z = 1e-11;
+            }
+        }
         
         Vec3::new(x, y, z)
     }
@@ -155,7 +176,7 @@ impl Grid {
 
     pub fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, options: &Options) -> bool {
         let ray_unit = Ray::new(r.origin().clone(), r.direction().unit());
-        self.traverse(r, ray_t, rec, data, options)
+        self.traverse_brute2(r, ray_t, rec, data, options)
     }
     
     /// Traverses the grid until the gridbox containing the object the ray intersects with is found
@@ -172,14 +193,17 @@ impl Grid {
             let step: Vec3 = self.step(ray);
             let mut t_max: Vec3 = self.get_tmax(grid_box, ray);
             let t_delta: Vec3 = self.get_tdelta(ray);
+            let neverX = Interval::new(1e-11, t_delta.x()).size() < 1e-10;
+            let neverY = Interval::new(1e-11, t_delta.y()).size() < 1e-10;
+            let neverZ = Interval::new(1e-11, t_delta.z()).size() < 1e-10;
             let mut xyz_hist = Vec::new();
             let print_debug = false;
             let mut max_hist = Vec::new();
             loop {
                 xyz_hist.push(xyz.clone());
                 max_hist.push(t_max.clone());
-                if t_max.x().abs() < t_max.y().abs() {
-                    if t_max.x().abs() < t_max.z().abs() {
+                if (t_max.x().abs() < t_max.y().abs() || neverY) && !neverX {
+                    if (t_max.x().abs() < t_max.z().abs() || neverZ) && !neverX {
                         xyz += Vec3::new(step.x(), 0.0, 0.0);
                         if self.outside(xyz) {
                             let mut rec_copy = rec.clone();
@@ -197,25 +221,27 @@ impl Grid {
                         }
                         t_max += Vec3::new(t_delta.x(), 0.0, 0.0);
                     } else {
-                        xyz += Vec3::new(0.0, 0.0, step.z());
-                        if self.outside(xyz) {
-                            let mut rec_copy = rec.clone();
-                            if print_debug && self.check(ray, ray_t, &mut rec_copy, data) {
-                                eprintln!("raycheck {} {} {} to {} {} {}", ray.origin().x(), ray.origin().y(), ray.origin().z(), ray.direction().x(), ray.direction().y(), ray.direction().z());
-                                eprintln!("box enter is {} {} {}", grid_box.aabb.min.x(), grid_box.aabb.min.y(), grid_box.aabb.min.z());
-                                eprintln!("{}, {}, {}", xyz.x(), xyz.y(), xyz.z());
-                                eprintln!("{}, {}, {}", step.x(), step.y(), step.z());
-                                eprintln!("{}, {}, {}", t_max.x(), t_max.y(), t_max.z());
-                                eprintln!("{}, {}, {}", t_delta.x(), t_delta.y(), t_delta.z());
-                                eprintln!("hist: {:?}", xyz_hist);
-                                eprintln!("tmax hist: {:?}", max_hist);
+                        if !neverZ {
+                            xyz += Vec3::new(0.0, 0.0, step.z());
+                            if self.outside(xyz) {
+                                let mut rec_copy = rec.clone();
+                                if print_debug && self.check(ray, ray_t, &mut rec_copy, data) {
+                                    eprintln!("raycheck {} {} {} to {} {} {}", ray.origin().x(), ray.origin().y(), ray.origin().z(), ray.direction().x(), ray.direction().y(), ray.direction().z());
+                                    eprintln!("box enter is {} {} {}", grid_box.aabb.min.x(), grid_box.aabb.min.y(), grid_box.aabb.min.z());
+                                    eprintln!("{}, {}, {}", xyz.x(), xyz.y(), xyz.z());
+                                    eprintln!("{}, {}, {}", step.x(), step.y(), step.z());
+                                    eprintln!("{}, {}, {}", t_max.x(), t_max.y(), t_max.z());
+                                    eprintln!("{}, {}, {}", t_delta.x(), t_delta.y(), t_delta.z());
+                                    eprintln!("hist: {:?}", xyz_hist);
+                                    eprintln!("tmax hist: {:?}", max_hist);
+                                }
+                                return false;
                             }
-                            return false;
+                            t_max += Vec3::new(0.0, 0.0, t_delta.z());
                         }
-                        t_max += Vec3::new(0.0, 0.0, t_delta.z());
                     }
                 } else {
-                    if (t_max.y().abs() < t_max.z().abs()) {
+                    if (t_max.y().abs() < t_max.z().abs() || neverZ) && !neverY {
                         xyz += Vec3::new(0.0, step.y(), 0.0);
                         if self.outside(xyz) {
                             let mut rec_copy = rec.clone();
@@ -233,22 +259,24 @@ impl Grid {
                         }
                         t_max += Vec3::new(0.0, t_delta.y(), 0.0);
                     } else {
-                        xyz += Vec3::new(0.0, 0.0, step.z());
-                        if self.outside(xyz) {
-                            let mut rec_copy = rec.clone();
-                            if print_debug && self.check(ray, ray_t, &mut rec_copy, data) {
-                                eprintln!("raycheck {} {} {} to {} {} {}", ray.origin().x(), ray.origin().y(), ray.origin().z(), ray.direction().x(), ray.direction().y(), ray.direction().z());
-                                eprintln!("box enter is {} {} {}", grid_box.aabb.min.x(), grid_box.aabb.min.y(), grid_box.aabb.min.z());
-                                eprintln!("{}, {}, {}", xyz.x(), xyz.y(), xyz.z());
-                                eprintln!("{}, {}, {}", step.x(), step.y(), step.z());
-                                eprintln!("{}, {}, {}", t_max.x(), t_max.y(), t_max.z());
-                                eprintln!("{}, {}, {}", t_delta.x(), t_delta.y(), t_delta.z());
-                                eprintln!("hist: {:?}", xyz_hist);
-                                eprintln!("tmax hist: {:?}", max_hist);
+                        if !neverZ {
+                            xyz += Vec3::new(0.0, 0.0, step.z());
+                            if self.outside(xyz) {
+                                let mut rec_copy = rec.clone();
+                                if print_debug && self.check(ray, ray_t, &mut rec_copy, data) {
+                                    eprintln!("raycheck {} {} {} to {} {} {}", ray.origin().x(), ray.origin().y(), ray.origin().z(), ray.direction().x(), ray.direction().y(), ray.direction().z());
+                                    eprintln!("box enter is {} {} {}", grid_box.aabb.min.x(), grid_box.aabb.min.y(), grid_box.aabb.min.z());
+                                    eprintln!("{}, {}, {}", xyz.x(), xyz.y(), xyz.z());
+                                    eprintln!("{}, {}, {}", step.x(), step.y(), step.z());
+                                    eprintln!("{}, {}, {}", t_max.x(), t_max.y(), t_max.z());
+                                    eprintln!("{}, {}, {}", t_delta.x(), t_delta.y(), t_delta.z());
+                                    eprintln!("hist: {:?}", xyz_hist);
+                                    eprintln!("tmax hist: {:?}", max_hist);
+                                }
+                                return false;
                             }
-                            return false;
+                            t_max += Vec3::new(0.0, 0.0, t_delta.z());
                         }
-                        t_max += Vec3::new(0.0, 0.0, t_delta.z());
                     }
                 }
                 if let Some(current_box) = self.get_grid_box_from_xyz(xyz) {
@@ -389,6 +417,42 @@ impl Grid {
         false
     }
     
+    pub fn traverse_brute2(&self, ray: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, options: &Options) -> bool {
+        if let Some(cellBox) = self.get_box_enter(ray) {
+            let mut rec_copy = rec.clone();
+            let mut hit_anything = false;
+            if !cellBox.objects.is_empty() {
+                if cellBox.hit(self, ray, ray_t, &mut rec_copy, data, options) {
+                    *rec = rec_copy.clone();
+                    hit_anything = true;
+                }
+            }
+            let mut current_box = cellBox;
+            loop {
+                rec_copy = rec.clone();
+                if let Some((enter_, exit)) = current_box.aabb.enter_and_exit(ray, ray_t) {
+                    if let Some(next_box) = self.get_grid_box_from_point(ray.at(exit + 1e-3)) {
+                        assert!(!std::ptr::eq(current_box, next_box));
+                        current_box = next_box;
+                        if !current_box.objects.is_empty() {
+                            if current_box.hit(self, ray, ray_t, &mut rec_copy, data, options) {
+                                *rec = rec_copy.clone();
+                                hit_anything = true;
+                            }
+                        }
+                    } else {
+                        break; // outside grid
+                    }
+                } else {
+                    break; // todo: this break should go, but otherwise we have an infinite loop so something is going wrong
+                }
+            }
+            return hit_anything;
+        }
+        
+        false
+    }
+    
     //TODO: debug function, should go once the bugs are fixed
     pub fn check(&self, ray: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data) -> bool {
         let mut hr = rec.clone();
@@ -487,7 +551,7 @@ impl Grid {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GridBox {
     pub aabb: AABB,
     pub objects: Vec<usize>

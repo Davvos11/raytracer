@@ -6,7 +6,7 @@ use crate::rtweekend::{AlgorithmOptions, Options};
 use crate::vec3::Point3;
 
 /// BVH and AABB from course slides
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct AABB {
     pub min: Point3,
     pub max: Point3,
