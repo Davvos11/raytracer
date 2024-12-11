@@ -2,7 +2,7 @@ use std::rc::Rc;
 use crate::acceleration::aabb::AABB;
 use crate::data::Data;
 use crate::interval::Interval;
-use crate::material::Material;
+use crate::material::{Material, MaterialType};
 use crate::ray::Ray;
 use crate::vec3::{Point3, Vec3};
 
@@ -34,4 +34,8 @@ pub trait Hittable {
     fn centroid(&self) -> Point3;
     
     fn surface_area(&self) -> f64;
+    
+    fn material_type(&self) -> Option<MaterialType> {
+        None
+    }
 }

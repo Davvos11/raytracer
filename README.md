@@ -26,6 +26,17 @@ For example `-o draw-boxes` draws the BVH bounding boxes.
 cargo run --release -- --help # For a list of all options
 ```
 
+## Tests
+```shell
+cargo test --release
+```
+This will run a set of scenes from the `scenes` folder with different algorithms and options.  
+The simple scenes will be ran using the **naive** and **BVH** algorithms, more complex scenes will
+not be run using the **naive** algorithm. For the **BVH** algorithm three different SAH settings will
+be tested.
+
+Any time a image is generated using any of the above commands, statistics are collected to `output/stats.csv`.
+
 ## Features / implementation details
 - [x] All features from [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
 - [x] Triangle geometry and intersection based on [this tutorial](https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/geometry-of-a-triangle.html)
