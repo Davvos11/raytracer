@@ -67,8 +67,8 @@ fn main() {
         (world, filename)
     };
 
-    //world.algorithm = args.algorithm;
-    world.algorithm = IntersectionAlgorithm::Grid;
+    world.algorithm = args.algorithm;
+    // world.algorithm = IntersectionAlgorithm::Grid;
     world.options = options;
 
     let mut cam = Camera::new();
@@ -85,6 +85,7 @@ fn main() {
     } else {
         cam.vfov = 90.0;
         cam.look_from = Point3::new(0.0, 0.0, 0.0);
+        // cam.look_from = Point3::new(1.0, 1.0, 1.0);
         cam.look_at = Point3::new(0.0, 0.0, -1.0);
     }
     cam.v_up = Vec3::new(0.0, 1.0, 0.0);

@@ -21,7 +21,7 @@ pub struct HittableList {
     #[serde(skip)]
     bvh: Option<Bvh>,
     #[serde(skip)]
-    grid: Option<Grid>
+    grid: Option<Grid>,
 }
 
 impl HittableList {
@@ -39,6 +39,12 @@ impl HittableList {
             IntersectionAlgorithm::Grid => {
                 let t = Instant::now();
                 self.grid = Some(Grid::new(self.objects.clone(), Vec3::new(25.0, 25.0, 25.0), Point3::new(-100.0, -100.0, -100.0), Point3::new(100.0, 100.0, 100.0), Point3::new(200.0, 200.0, 200.0)));
+                if let Some(grid) = &self.grid {
+                    for box_ in &grid.boxes {
+                        if box_.objects.len() <= 1 { continue }
+                        println!("{:?}: {:?}", box_.aabb, box_.objects);
+                    }
+                }
                 eprintln!("Grid constructed in {:3.2?}", t.elapsed())
             }
             _ => {}
@@ -125,5 +131,5 @@ pub fn objects_to_aabb(objects: &[Rc<dyn Hittable>]) -> AABB {
 }
 
 pub fn objects_surface_area(objects: &[Rc<dyn Hittable>]) -> f64 {
-    objects.iter().map(|o|o.surface_area()).sum()
+    objects.iter().map(|o| o.surface_area()).sum()
 }
