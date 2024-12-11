@@ -190,6 +190,7 @@ impl Grid {
         // The integer variables X and Y are initialized to the starting voxel coordinates.
         let mut xyz: Vec3 = grid_box.aabb.min;
         // Determine the point where we will leave this aabb
+        data.add_intersection_check();
         let t_hit = grid_box.aabb.hit(ray, Interval::universe(), rec, options)
             // .expect(&format!("We do not hit the box we are in: {:?} with {:?}", grid_box, ray))
         ;
