@@ -7,7 +7,7 @@ use crate::ray::Ray;
 use crate::rtweekend::Options;
 use crate::vec3::{Point3, Vec3};
 
-// http://www.cse.yorku.ca/~amana/research/grid.pdf used for traversal per ray
+// https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=7620a26cf2ffc6a4d634c7cde816d2f716904d26 used as reference
 pub struct Grid {
     pub objects: Vec<Rc<dyn Hittable>>,
     pub boxes: Vec<GridBox>,
@@ -155,7 +155,7 @@ impl Grid {
         if t_hit.is_none() { return false; }
         let t_hit = t_hit.unwrap();
         let step = t_hit.1.get_step(self);
-        
+
         let mut rec_copy = rec.clone();
         // Check for primitive intersections in this box
         if grid_box.hit(self, ray, ray_t, &mut rec_copy, data ,options) {
