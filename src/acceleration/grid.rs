@@ -179,6 +179,7 @@ impl Grid {
     /// Traverses the grid until the gridbox containing the object the ray intersects with is found
     fn traverse(&self, grid_box: &GridBox, ray: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, options: &Options, depth: u32) -> bool {
         // println!("{:?}", &grid_box);
+        // TODO this should probably not happen
         if depth > 10 { return false; }
         // Check for primitive intersections in this box
         if grid_box.hit(self, ray, ray_t, rec, data ,options) {
