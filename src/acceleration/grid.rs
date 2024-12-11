@@ -18,35 +18,35 @@ pub struct Grid {
 }
 
 impl Grid {
-    
+
     /// Creates and fills a Grid according to the settings provided in the arguments
     pub fn new(objects: Vec<Rc<dyn Hittable>>, box_size: Vec3, origin: Point3, end: Point3, total_size: Point3) -> Self {
         let mut origin_box = GridBox::new(origin, box_size);
         origin_box.try_add_all(&objects);
-        
+
         let mut boxes = vec![origin_box; ((total_size.x() / box_size.x()) * (total_size.y() / box_size.y()) * (total_size.z() / box_size.z())) as usize];
-        
+
         let start_x = origin.x() as i32;
         let start_y = origin.y() as i32;
         let start_z = origin.z() as i32;
         let end_x = end.x() as i32;
         let end_y = end.y() as i32;
         let end_z = end.z() as i32;
-        
+
         for x in (start_x..end_x).step_by(box_size.x() as usize) {
             for y in (start_y..end_y).step_by(box_size.y() as usize) {
                 for z in (start_z..end_z).step_by(box_size.z() as usize) {
                     let min: Point3 = Point3::new(x as f64, y as f64, z as f64);
-                    
+
                     // Don't add the origin box twice
                     let distance_check = min - origin;
                     if distance_check.length_squared() <= 1.0 {
                         continue;
                     }
-                    
+
                     let mut grid_box = GridBox::new(min, box_size);
                     grid_box.try_add_all(&objects);
-                    
+
                     let final_x = (x as f64 - origin.x()) as i32;
                     let final_y = (y as f64 - origin.y()) as i32;
                     let final_z = (z as f64 - origin.z()) as i32;
@@ -88,17 +88,17 @@ impl Grid {
         if ray.direction().x() >= 0.0 {
             x_nearest = grid_box.aabb.max.x();
         }
-        
+
         let mut y_nearest = grid_box.aabb.min.y();
         if ray.direction().y() >= 0.0 {
             y_nearest = grid_box.aabb.max.y();
         }
-        
+
         let mut z_nearest = grid_box.aabb.min.z();
         if ray.direction().z() >= 0.0 {
             z_nearest = grid_box.aabb.max.z();
         }
-        
+
         let t_x = (x_nearest - ray.origin().x()).abs() / ray.direction().x().abs();
         let t_y = (y_nearest - ray.origin().y()).abs() / ray.direction().y().abs();
         let t_z = (z_nearest - ray.origin().z()).abs() / ray.direction().z().abs();
@@ -152,25 +152,32 @@ impl Grid {
     fn traverse(&self, grid_box: &GridBox, ray: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, options: &Options, depth: u32) -> bool {
         // println!("{:?}", &grid_box);
         // TODO this should probably not happen
-        if depth > 10 { return false; }
+        if depth > self.total_size.z() as u32 { return false; }
         data.add_traversal_step();
+
+        let t_hit = grid_box.aabb.hit(ray, Interval::universe(), rec, options)
+            // .expect(&format!("We do not hit the box we are in: {:?} with {:?}", grid_box, ray))
+            ;
+        // TODO this should also not happen
+        if t_hit.is_none() { /*println!("sip...");*/ return false; }
+        let t_hit = t_hit.unwrap();
+        let step = t_hit.1.get_step(self);
+        
+        let mut rec_copy = rec.clone();
         // Check for primitive intersections in this box
-        if grid_box.hit(self, ray, ray_t, rec, data ,options) {
+        if grid_box.hit(self, ray, ray_t, &mut rec_copy, data ,options) {
             // println!("Hit item! {:?}", rec.p);
-            return true;
+            *rec = rec_copy;
+            if rec.t <= t_hit.0.max {
+                return true;
+            }
         }
+        rec_copy = rec.clone();
         
         // The integer variables X and Y are initialized to the starting voxel coordinates.
         let xyz: Vec3 = grid_box.aabb.min;
         // Determine the point where we will leave this aabb
         data.add_intersection_check();
-        let t_hit = grid_box.aabb.hit(ray, Interval::universe(), rec, options)
-            // .expect(&format!("We do not hit the box we are in: {:?} with {:?}", grid_box, ray))
-        ;
-        // TODO this should also not happen
-        if t_hit.is_none() { /*println!("sip...");*/ return false; }
-        let t_hit = t_hit.unwrap();
-        let step = t_hit.1.get_step(self);
 
         let next_xyz = xyz + step;
         // println!("{:?} + {:?} = {:?}", xyz, step, next_xyz);
@@ -321,7 +328,7 @@ impl Grid {
         i
     }
 
-    
+
     /// TODO: debug should be removed later
     pub fn print_boxes(&self, hits: Vec<usize>) {
         for (i, b) in self.boxes.iter().enumerate() {
@@ -407,7 +414,7 @@ pub struct GridBox {
 }
 
 impl GridBox {
-    
+
     pub fn new(origin: Point3, size: Vec3) -> Self {
         let aabb: AABB = AABB::new(origin, origin + size);
         Self { aabb, objects: Vec::new() }
