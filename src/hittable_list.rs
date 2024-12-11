@@ -43,7 +43,6 @@ impl HittableList {
                 if let Some(grid) = &self.grid {
                     for box_ in &grid.boxes {
                         if box_.objects.len() <= 1 { continue }
-                        println!("{:?}: {:?}", box_.aabb, box_.objects);
                     }
                 }
                 eprintln!("Grid constructed in {:3.2?}", t.elapsed())
@@ -94,7 +93,7 @@ impl Hittable for HittableList {
                 if let Some(grid) = &self.grid {
                     grid.hit(r, ray_t, rec, data, &self.options)
                 } else {
-                    panic!("Please run Grid::new first")
+                    panic!("Please run Grid::new() first")
                 }
             }
         }
