@@ -102,7 +102,7 @@ impl BvhNode {
             return Some((left_node, right_node));
         }
 
-        let mut best_heuristic = self.aabb.surface_area() as usize * self.count;
+        let mut best_heuristic = self.aabb.surface_area() * self.count as f64;
         let mut best_split = None;
         let mut best_axis = 0;
         // Check each axis
@@ -149,12 +149,12 @@ impl BvhNode {
     /// left.surface_area * left.objects.len() + right.surface_area * right.objects.len()
     ///    is less than self.surface_area * self.objects.len()
     /// Returns the new heuristic and the two nodes (or None if the split is not worth it)
-    fn check_split_sah(&self, split: usize, objects: &[Rc<dyn Hittable>], current_heuristic: usize)
-                       -> Option<(usize, BvhNode, BvhNode)> {
+    fn check_split_sah(&self, split: usize, objects: &[Rc<dyn Hittable>], current_heuristic: f64)
+                       -> Option<(f64, BvhNode, BvhNode)> {
         let left_node = BvhNode::new_leaf(0, self.first, split, objects);
         let right_node = BvhNode::new_leaf(split, self.first, self.count - split, objects);
-        let left_heuristic = left_node.aabb.surface_area() as usize * split;
-        let right_heuristic = right_node.aabb.surface_area() as usize * (self.count - split);
+        let left_heuristic = left_node.aabb.surface_area()  * split as f64;
+        let right_heuristic = right_node.aabb.surface_area()  * (self.count - split) as f64;
         let new_heuristic = left_heuristic + right_heuristic;
         if new_heuristic < current_heuristic {
             Some((new_heuristic, left_node, right_node))
@@ -189,9 +189,10 @@ impl BvhNode {
     }
 
     #[allow(clippy::collapsible_if)]
+    /// This method does NOT run self.hit_aabb(), please run that first to avoid unnecessary traversal
     pub fn hit(&self, r: &Ray, ray_t: Interval, bvh: &Bvh, rec: &mut HitRecord, data: &mut Data, options: &Options) -> bool {
-        // if self.hit_aabb(r, ray_t, rec, data).is_none() { return false }
-
+        data.add_traversal_step();
+        
         let mut hit_anything = false;
         let mut closest_so_far = ray_t.max;
 

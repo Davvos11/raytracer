@@ -2,10 +2,14 @@ use crate::camera::Camera;
 use crate::vec3::{Point3, Vec3};
 use clap::Parser;
 use std::fs::File;
+use std::rc::Rc;
 use std::time::Instant;
+use crate::color::Color;
 use crate::acceleration::grid::Grid;
 use crate::data::Data;
-use crate::rtweekend::{check_valid_options, get_output_filename, AlgorithmOptions, IntersectionAlgorithm, Options};
+use crate::material::{Lambertian, MaterialType};
+use crate::parser::parse_ply;
+use crate::rtweekend::{check_valid_options, get_output_filename, AlgorithmOptions, Cli, FileFormat, IntersectionAlgorithm, Options};
 
 mod vec3;
 mod color;
@@ -21,18 +25,8 @@ mod scenes;
 mod triangle;
 mod acceleration;
 mod data;
-
-#[derive(Parser)]
-struct Cli {
-    /// The world / scene file
-    filename: Option<String>,
-    #[arg(long, default_value_t = IntersectionAlgorithm::default())]
-    /// The intersection algorithm
-    algorithm: IntersectionAlgorithm,
-    /// Options for the algorithm
-    #[arg(value_enum, long, short)]
-    options: Vec<AlgorithmOptions>,
-}
+mod parser;
+mod test;
 
 fn main() {
     // Parse CLI arguments
@@ -40,13 +34,26 @@ fn main() {
     if let Some(error) = check_valid_options(&args.options) {
         panic!("{error}")
     }
-    let options = Options::new(args.options);
+    run(args)
+}
+
+fn run(args: Cli) {
+    let options = Options::new(args.options.clone());
 
     let (mut world, filename) = if let Some(filename) = args.filename {
-        // Deserialize the object
-        let file = File::open(&filename).expect("Could not open scene file");
-        let world = serde_json::from_reader(&file).expect("Could not read scene file");
-        (world, filename)
+        match args.format {
+            FileFormat::Native => {
+                // Deserialize the object
+                let file = File::open(&filename).expect("Could not open scene file");
+                let world = serde_json::from_reader(&file).expect("Could not read scene file");
+                (world, filename)
+            }
+            FileFormat::PLY => {
+                let material = Rc::new(Lambertian::new(Color::new(0.8, 0.2, 0.1)));
+                let world = parse_ply(&filename.clone().into(), material).expect("Failed to open PLY scene");
+                (world, filename)
+            }
+        }
     } else {
         // let (world, filename) = scenes::weekend_final();
         // let (world, filename) = scenes::weekend_custom(2, 0.9, 0.05);
@@ -56,7 +63,8 @@ fn main() {
         // let (world, filename) = scenes::simple_shiny_metal();
         // let (world, filename) = scenes::simple_fuzzy_metal();
         // let (world, filename) = scenes::simple_triangle();
-        let (world, filename) = scenes::triangle_materials();
+        // let (world, filename) = scenes::triangle_materials();
+        let (world, filename) = scenes::triangle_test();
 
         // Serialize the world
         let filename = format!("scenes/{filename}.json");
@@ -68,20 +76,26 @@ fn main() {
     };
 
     world.algorithm = args.algorithm;
-    // world.algorithm = IntersectionAlgorithm::Grid;
-    world.options = options;
+    world.options = options.clone();
 
     let mut cam = Camera::new();
     cam.aspect_ratio = 16.0 / 9.0;
     cam.image_width = 900;
     cam.samples_per_pixel = 50;
     cam.max_depth = 50;
+    cam.defocus_angle = 0.1;
+    cam.focus_dist = 1.0;
 
     // TODO this is very hacky, encode this in the json files
     if filename.starts_with("scenes/weekend") {
         cam.vfov = 20.0;
         cam.look_from = Point3::new(13.0, 2.0, 3.0);
         cam.look_at = Point3::new(0.0, 0.0, 0.0);
+    } else if filename.starts_with("scenes/dragon") {
+        cam.vfov = 20.0;
+        cam.focus_dist = 50.0;
+        cam.look_from = Point3::new(0.0, 15.0, 50.0);
+        cam.look_at = Point3::new(0.0, 12.0, 0.0);
     } else {
         cam.vfov = 90.0;
         cam.look_from = Point3::new(0.0, 0.0, 0.0);
@@ -90,30 +104,39 @@ fn main() {
     }
     cam.v_up = Vec3::new(0.0, 1.0, 0.0);
 
-    cam.defocus_angle = 0.1;
-    cam.focus_dist = 1.0;
-    
+    // Scene statistics
+    if args.stats {
+        let lambertian_materials = world.objects.iter().filter(|i| i.material_type() == Some(MaterialType::Lambertian)).count();
+        let metal_materials = world.objects.iter().filter(|i| i.material_type() == Some(MaterialType::Metal)).count();
+        let dielectric_materials = world.objects.iter().filter(|i| i.material_type() == Some(MaterialType::Dielectric)).count();
+
+        println!("Name & \\# Primitives & \\# Lambertian primitives & \\# Metal primitives & \\# Dieelectric primitives \\\\");
+        println!("{filename} & {} & {} & {} & {}\\\\",
+                 world.objects.len(), lambertian_materials, metal_materials, dielectric_materials);
+        return;
+    }
+
     // Open file
-    let filename = get_output_filename(&filename, &world.algorithm)
+    let out_filename = get_output_filename(&filename, &world.algorithm, &options)
         .expect("Could not parse filename");
-    let mut file = File::create(&filename)
+    let mut file = File::create(&out_filename)
         .expect("Could not open image file");
 
-    let mut data: Data = Data::new();
+    let mut data: Data = Data::new(filename.to_string(), world.objects.len(), args.algorithm, options, cam.image_width, cam.image_height(), cam.samples_per_pixel, cam.max_depth);
 
     let start = Instant::now();
     // Initialise structures like BVH
     world.init();
+    data.set_init_time(start.elapsed().as_secs_f64());
+
     // Render pixels
     cam.render(&world, &mut file, &mut data)
         .expect("Could not write to image file");
-    eprintln!("Wrote image to {filename}. Duration {:3.2?}", start.elapsed());
     data.set_seconds(start.elapsed().as_secs_f64());
-    println!("Total primary rays: {}", data.primary_rays());
-    println!("Total scatter rays: {}", data.scatter_rays());
-    println!("Overlapping AABBs: {}", data.overlapping_aabb());
-    println!("Total intersection checks: {}", data.intersection_checks());
-    println!("Total gridbox intersection checks: {}", data.gridbox_intersection_checks());
-    println!("Total seconds: {}", data.seconds());
+
+    data.print();
+    data.write_to_csv(&"output/stats.csv".into());
+
+    eprintln!("Wrote image to {out_filename}. Duration {:3.2?}", start.elapsed());
 }
 

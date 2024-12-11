@@ -1,6 +1,6 @@
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
-use crate::material::Material;
+use crate::material::{Material, MaterialType};
 use crate::ray::Ray;
 use crate::vec3::Point3;
 use serde::{Deserialize, Serialize};
@@ -101,5 +101,9 @@ impl Hittable for Triangle {
         let cross = ab.cross(&ac);
         let magnitude = cross.length();
         0.5 * magnitude
+    }
+   
+    fn material_type(&self) -> Option<MaterialType> {
+        Some(self.mat.get_type())
     }
 }

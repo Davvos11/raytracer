@@ -2,7 +2,7 @@ use std::f64::consts::PI;
 use crate::acceleration::aabb::AABB;
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
-use crate::material::Material;
+use crate::material::{Material, MaterialType};
 use crate::ray::Ray;
 use crate::vec3::Point3;
 use serde::{Deserialize, Serialize};
@@ -72,5 +72,9 @@ impl Hittable for Sphere {
 
     fn surface_area(&self) -> f64 {
         4.0 * PI * self.radius
+    }
+
+    fn material_type(&self) -> Option<MaterialType> {
+        Some(self.mat.get_type())
     }
 }
