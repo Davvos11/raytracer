@@ -185,7 +185,7 @@ impl BvhNode {
 
     pub fn hit_aabb(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, options: &Options) -> Option<f64> {
         data.add_intersection_check();
-        self.aabb.hit(r, ray_t, rec, options)
+        self.aabb.hit(r, ray_t, rec, options).map(|i|i.0.min)
     }
 
     #[allow(clippy::collapsible_if)]

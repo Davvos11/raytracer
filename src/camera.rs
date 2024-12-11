@@ -58,13 +58,13 @@ impl Camera {
         bar.set_style(ProgressStyle::default_bar()
             .template("{wide_bar} Lines completed: {percent}%, Elapsed: {elapsed_precise}, ETA: {eta_precise}").unwrap());
 
-        let header = format!("P3\n{} {}\n255\n", self.image_width, self.image_height);
+        let header = format!("P3\n{} {}\n255\n", self.image_width /*- 180*/, self.image_height /*- 110*/);
         writer.write_all(header.as_bytes())?;
 
-        for j in 0..self.image_height {
+        for j in /*11*/0..self.image_height {
             bar.inc(1);
 
-            for i in 0..self.image_width {
+            for i in /*18*/0..self.image_width {
                 let mut pixel_color = Color::default();
                 for _ in 0..self.samples_per_pixel {
                     data.add_primary_ray();
@@ -74,6 +74,7 @@ impl Camera {
 
                 let pixel = color_to_string(&(self.pixel_samples_scale * pixel_color));
                 writer.write_all(pixel.as_bytes())?;
+                // return Ok(())
             }
         }
 

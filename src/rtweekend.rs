@@ -18,6 +18,9 @@ pub struct Cli {
     /// Options for the algorithm
     #[arg(value_enum, long, short)]
     pub options: Vec<AlgorithmOptions>,
+    /// Grid size (if algorithm is grid)
+    #[arg(long, short, default_value_t = 25.0)]
+    pub grid_size: f64,
     /// Print scene statistics (as LaTeX table row) and exit
     #[arg(long)]
     pub stats: bool
@@ -46,11 +49,12 @@ impl Cli {
     }
 }
 
-#[derive(Default, Copy, Clone, ValueEnum, Serialize)]
+#[derive(Default, Copy, Clone, ValueEnum, Serialize, Debug, PartialEq)]
 pub enum IntersectionAlgorithm {
     Naive,
     #[default]
     BVH,
+    Grid
 }
 
 #[derive(Default, Copy, Clone, ValueEnum)]
@@ -60,15 +64,21 @@ pub enum FileFormat {
     PLY,
 }
 
-#[derive(Default, Clone, Debug, Eq, PartialEq)]
+#[derive(Default, Clone, Debug)]
 pub struct Options {
+    pub algorithm: IntersectionAlgorithm,
     pub options: Vec<AlgorithmOptions>,
     pub draw_boxes: bool,
+    pub grid_size: f64,
 }
 
 impl Display for Options {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let joined = self.options.iter().map(|x| format!("{x:?}")).collect::<Vec<_>>().join("_");
+        let mut option_strs = self.options.iter().map(|x| format!("{x:?}")).collect::<Vec<_>>();
+        if self.algorithm == IntersectionAlgorithm::Grid {
+            option_strs.push(format!("size={}", self.grid_size));
+        }
+        let joined = option_strs.join("_");
         f.write_str(&joined)
     }
 }
@@ -83,10 +93,12 @@ impl Serialize for Options {
 }
 
 impl Options {
-    pub fn new(alg_options: Vec<AlgorithmOptions>) -> Self {
+    pub fn new(args: &Cli) -> Self {
         Self {
-            draw_boxes: alg_options.contains(&AlgorithmOptions::DrawBoxes),
-            options: alg_options,
+            algorithm: args.algorithm,
+            draw_boxes: args.options.contains(&AlgorithmOptions::DrawBoxes),
+            options: args.options.clone(),
+            grid_size: args.grid_size,
         }
     }
 }
@@ -117,8 +129,9 @@ pub fn check_valid_options(options: &[AlgorithmOptions]) -> Option<String> {
 impl Display for IntersectionAlgorithm {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            IntersectionAlgorithm::Naive => { write!(f, "naive") }
-            IntersectionAlgorithm::BVH => { write!(f, "bvh") }
+            IntersectionAlgorithm::Naive => {write!(f, "naive")}
+            IntersectionAlgorithm::BVH => {write!(f, "bvh")}
+            IntersectionAlgorithm::Grid => {write!(f, "grid")}
         }
     }
 }

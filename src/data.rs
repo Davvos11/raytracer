@@ -13,6 +13,7 @@ pub struct Data {
     intersection_checks: usize,
     traversal_steps: usize,
     overlapping_aabb: usize,
+    gridbox_intersection_checks: usize,
     filename: String,
     primitives: usize,
     algorithm: IntersectionAlgorithm,
@@ -45,6 +46,7 @@ impl Data {
         println!("Total scatter rays: {}", self.scatter_rays());
         println!("Overlapping AABBs: {}", self.overlapping_aabb());
         println!("Total intersection checks: {}", self.intersection_checks());
+        println!("Total gridbox intersection checks: {}", self.gridbox_intersection_checks());
         println!("Total traversal steps: {}", self.traversal_steps());
         println!("Total init time: {}", self.init_time());
         println!("Total time: {}", self.seconds());
@@ -67,7 +69,7 @@ impl Data {
         writer.serialize(self).expect("Failed to serialise CSV data");
         writer.flush().expect("Failed to write CSV data");
     }
-    
+
     pub fn seconds(&self) -> f64 {
         self.seconds
     }
@@ -122,4 +124,8 @@ impl Data {
     pub fn add_overlapping_aabb(&mut self) {
         self.overlapping_aabb += 1;
     }
+
+    pub fn gridbox_intersection_checks(&self) -> usize { self.intersection_checks }
+
+    pub fn add_gridbox_intersection_check(&mut self) { self.gridbox_intersection_checks += 1; }
 }

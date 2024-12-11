@@ -5,6 +5,7 @@ use std::fs::File;
 use std::rc::Rc;
 use std::time::Instant;
 use crate::color::Color;
+use crate::acceleration::grid::Grid;
 use crate::data::Data;
 use crate::material::{Lambertian, MaterialType};
 use crate::parser::parse_ply;
@@ -37,7 +38,7 @@ fn main() {
 }
 
 fn run(args: Cli) {
-    let options = Options::new(args.options.clone());
+    let options = Options::new(&args);
 
     let (mut world, filename) = if let Some(filename) = args.filename {
         match args.format {
@@ -98,6 +99,7 @@ fn run(args: Cli) {
     } else {
         cam.vfov = 90.0;
         cam.look_from = Point3::new(0.0, 0.0, 0.0);
+        // cam.look_from = Point3::new(1.0, 1.0, 1.0);
         cam.look_at = Point3::new(0.0, 0.0, -1.0);
     }
     cam.v_up = Vec3::new(0.0, 1.0, 0.0);
@@ -115,7 +117,7 @@ fn run(args: Cli) {
     }
 
     // Open file
-    let out_filename = get_output_filename(&filename, &args.algorithm, &options)
+    let out_filename = get_output_filename(&filename, &world.algorithm, &options)
         .expect("Could not parse filename");
     let mut file = File::create(&out_filename)
         .expect("Could not open image file");

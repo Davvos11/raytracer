@@ -5,9 +5,10 @@ use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::ray::Ray;
 use crate::rtweekend::{IntersectionAlgorithm, Options};
-use crate::vec3::Point3;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
+use crate::acceleration::grid::Grid;
+use crate::vec3::{Point3, Vec3};
 use std::time::Instant;
 
 #[derive(Default, Serialize, Deserialize)]
@@ -19,11 +20,13 @@ pub struct HittableList {
     pub options: Options,
     #[serde(skip)]
     bvh: Option<Bvh>,
+    #[serde(skip)]
+    grid: Option<Grid>,
 }
 
 impl HittableList {
     pub fn new(object: Rc<dyn Hittable>) -> Self {
-        Self { objects: vec![object], algorithm: Default::default(), options: Default::default(), bvh: None }
+        Self { objects: vec![object], algorithm: Default::default(), options: Default::default(), bvh: None, grid: None }
     }
 
     pub fn init(&mut self) {
@@ -32,6 +35,18 @@ impl HittableList {
                 let t = Instant::now();
                 self.bvh = Some(Bvh::new(self.objects.clone(), &self.options));
                 eprintln!("BVH constructed in {:3.2?}", t.elapsed())
+            }
+            IntersectionAlgorithm::Grid => {
+                let t = Instant::now();
+                let size = self.options.grid_size;
+                self.grid = Some(Grid::new(self.objects.clone(), Vec3::new(size, size, size), Point3::new(-100.0, -100.0, -100.0), Point3::new(100.0, 100.0, 100.0), Point3::new(200.0, 200.0, 200.0)));
+                if let Some(grid) = &self.grid {
+                    for box_ in &grid.boxes {
+                        if box_.objects.len() <= 1 { continue }
+                        println!("{:?}: {:?}", box_.aabb, box_.objects);
+                    }
+                }
+                eprintln!("Grid constructed in {:3.2?}", t.elapsed())
             }
             _ => {}
         }
@@ -75,6 +90,13 @@ impl Hittable for HittableList {
                     panic!("Please run HittableList.init() first")
                 }
             }
+            IntersectionAlgorithm::Grid => {
+                if let Some(grid) = &self.grid {
+                    grid.hit(r, ray_t, rec, data, &self.options)
+                } else {
+                    panic!("Please run Grid::new first")
+                }
+            }
         }
     }
 
@@ -110,5 +132,5 @@ pub fn objects_to_aabb(objects: &[Rc<dyn Hittable>]) -> AABB {
 }
 
 pub fn objects_surface_area(objects: &[Rc<dyn Hittable>]) -> f64 {
-    objects.iter().map(|o|o.surface_area()).sum()
+    objects.iter().map(|o| o.surface_area()).sum()
 }

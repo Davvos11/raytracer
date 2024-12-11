@@ -76,6 +76,10 @@ impl Vec3 {
     pub fn x(&self) -> f64 { self.e[0] }
     pub fn y(&self) -> f64 { self.e[1] }
     pub fn z(&self) -> f64 { self.e[2] }
+    
+    pub fn set_x(&mut self, x: f64) { self.e[0] = x; }
+    pub fn set_y(&mut self, y: f64) { self.e[1] = y; }
+    pub fn set_z(&mut self, z: f64) { self.e[2] = z; }
 
     pub fn length(&self) -> f64 {
         self.length_squared().sqrt()
