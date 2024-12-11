@@ -38,7 +38,7 @@ fn main() {
 }
 
 fn run(args: Cli) {
-    let options = Options::new(args.options.clone());
+    let options = Options::new(&args);
 
     let (mut world, filename) = if let Some(filename) = args.filename {
         match args.format {
