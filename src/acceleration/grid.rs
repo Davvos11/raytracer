@@ -1,10 +1,5 @@
-use std::any::Any;
-use std::fmt::format;
-use std::ops::Add;
-use std::process::exit;
 use std::rc::Rc;
 use crate::acceleration::aabb::AABB;
-use crate::acceleration::bvh::Bvh;
 use crate::data::Data;
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
@@ -23,26 +18,35 @@ pub struct Grid {
 }
 
 impl Grid {
+    
+    /// Creates and fills a Grid according to the settings provided in the arguments
     pub fn new(objects: Vec<Rc<dyn Hittable>>, box_size: Vec3, origin: Point3, end: Point3, total_size: Point3) -> Self {
         let mut origin_box = GridBox::new(origin, box_size);
         origin_box.try_add_all(&objects);
+        
         let mut boxes = vec![origin_box; ((total_size.x() / box_size.x()) * (total_size.y() / box_size.y()) * (total_size.z() / box_size.z())) as usize];
+        
         let start_x = origin.x() as i32;
         let start_y = origin.y() as i32;
         let start_z = origin.z() as i32;
         let end_x = end.x() as i32;
         let end_y = end.y() as i32;
         let end_z = end.z() as i32;
+        
         for x in (start_x..end_x).step_by(box_size.x() as usize) {
             for y in (start_y..end_y).step_by(box_size.y() as usize) {
                 for z in (start_z..end_z).step_by(box_size.z() as usize) {
                     let min: Point3 = Point3::new(x as f64, y as f64, z as f64);
+                    
+                    // Don't add the origin box twice
                     let distance_check = min - origin;
                     if distance_check.length_squared() <= 1.0 {
-                        continue; // I dont see another way to do this
+                        continue;
                     }
+                    
                     let mut grid_box = GridBox::new(min, box_size);
                     grid_box.try_add_all(&objects);
+                    
                     let final_x = (x as f64 - origin.x()) as i32;
                     let final_y = (y as f64 - origin.y()) as i32;
                     let final_z = (z as f64 - origin.z()) as i32;
@@ -56,17 +60,19 @@ impl Grid {
         Self { objects, boxes, box_size, origin, total_size, aabb: AABB::new(origin, end) }
     }
 
+    /// Calculates the index for a 1D array
     pub fn get_index(point: Point3, box_size: Vec3, total_size: Point3) -> usize {
         let x = (point.x() / box_size.x()) as usize;
         let y = (point.y() / box_size.y()) as usize;
         let z = (point.z() / box_size.z()) as usize;
 
-        let size_x = (total_size.x() / box_size.x());
-        let size_y = (total_size.y() / box_size.y());
+        let size_x = total_size.x() / box_size.x();
+        let size_y = total_size.y() / box_size.y();
 
         (x as f64 + y as f64 * size_x + z as f64 * size_x * size_y) as usize
     }
 
+    /// Safe extension to get the index as to not fall outside the grid
     fn get_index_(&self, point: Point3) -> Option<usize> {
         let idx = Self::get_index(point - self.origin, self.box_size, self.total_size);
         if idx < self.boxes.len() {
@@ -76,58 +82,23 @@ impl Grid {
         }
     }
 
-    /// Gets value of t for which the ray crosses the first voxel boundary for x, y and z
-    pub fn get_tmax_old(&self, grid_box: &GridBox, ray: &Ray) -> Vec3 {
-        // make ray origin be minus the origin
-
-        // use mod to figure out how far along the ray the next boundary is
-        let mut x_origin = ((ray.origin().x() % self.box_size.x()) / self.box_size.x()).abs();
-        let mut y_origin = ((ray.origin().y() % self.box_size.y()) / self.box_size.y()).abs();
-        let mut z_origin = ((ray.origin().z() % self.box_size.z()) / self.box_size.z()).abs();
-
-        if (ray.origin().x() * ray.direction().x() < 0.0) {
-            x_origin = 1.0 - x_origin;
-        }
-        if (ray.origin().y() * ray.direction().y() < 0.0) {
-            y_origin = 1.0 - y_origin;
-        }
-        if (ray.origin().z() * ray.direction().z() < 0.0) {
-            z_origin = 1.0 - z_origin;
-        }
-
-
-        assert!(x_origin >= -1.0 && x_origin <= 1.0, "{}", x_origin);
-        assert!(y_origin >= -1.0 && y_origin <= 1.0, "{}", y_origin);
-        assert!(z_origin >= -1.0 && z_origin <= 1.0, "{}", z_origin);
-
-
-        // then look at for what t it is the box width
-        let t_x = (self.box_size.x() - (x_origin * self.box_size.x())) / ray.direction().x();
-        let t_y = (self.box_size.y() - (y_origin * self.box_size.y())) / ray.direction().y();
-        let t_z = (self.box_size.z() - (z_origin * self.box_size.z())) / ray.direction().z();
-
-        let final_x = x_origin + ray.direction().x() * t_x;
-        //assert!(final_x < 25.0 && final_x > -25.0, "{}", final_x);
-
-        // then do ray.at(t) - ray.origin to find t_max - maybe not?
-
-
-        Vec3::new(t_x.abs(), t_y.abs(), t_z.abs())
-    }
-
+    /// Returns the distance of each dimension to the nearest grid border on the ray's direction
     pub fn get_tmax(&self, grid_box: &GridBox, ray: &Ray) -> Vec3 {
         let mut x_nearest = grid_box.aabb.min.x();
         if ray.direction().x() >= 0.0 {
             x_nearest = grid_box.aabb.max.x();
         }
+        
         let mut y_nearest = grid_box.aabb.min.y();
         if ray.direction().y() >= 0.0 {
             y_nearest = grid_box.aabb.max.y();
         }
+        
         let mut z_nearest = grid_box.aabb.min.z();
         if ray.direction().z() >= 0.0 {
             z_nearest = grid_box.aabb.max.z();
         }
+        
         let t_x = (x_nearest - ray.origin().x()).abs() / ray.direction().x().abs();
         let t_y = (y_nearest - ray.origin().y()).abs() / ray.direction().y().abs();
         let t_z = (z_nearest - ray.origin().z()).abs() / ray.direction().z().abs();
@@ -135,7 +106,7 @@ impl Grid {
         Vec3::new(t_x, t_y, t_z)
     }
 
-    /// Gets the units of t for how far along each axis we need to move to cross a boundary
+    /// Returns the units of t for how far along each axis we need to move to cross a boundary
     pub fn get_tdelta(&self, ray: &Ray) -> Vec3 {
         let x = self.box_size.x() / ray.direction().x().abs();
         let y = self.box_size.y() / ray.direction().y().abs();
@@ -144,7 +115,7 @@ impl Grid {
         Vec3::new(x, y, z)
     }
 
-    /// Gets the first box the ray encounters, can be the box the ray starts inside
+    /// Returns the first box the ray encounters, which can be the box the ray starts inside
     pub fn get_box_enter(&self, ray: &Ray) -> Option<&GridBox> {
         if let Some(grid_box) = self.get_grid_box_from_point(*ray.origin()) {
             // origin is inside a box
@@ -164,6 +135,7 @@ impl Grid {
         self.get_grid_box_from_point(point)
     }
 
+    /// Returns true if the ray hits an object, rec and data are updated.
     pub fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, options: &Options) -> bool {
         // The equation of the ray is →u + t →v for t ≥ 0. 
         //  The initialization phase begins by identifying the voxel in which the ray origin, →u, is found.
@@ -172,7 +144,7 @@ impl Grid {
         } else {
             // TODO this should not happen
             // panic!("Initial box not found");
-            return false;
+            false
         }
     }
 
@@ -189,7 +161,7 @@ impl Grid {
         }
         
         // The integer variables X and Y are initialized to the starting voxel coordinates.
-        let mut xyz: Vec3 = grid_box.aabb.min;
+        let xyz: Vec3 = grid_box.aabb.min;
         // Determine the point where we will leave this aabb
         data.add_intersection_check();
         let t_hit = grid_box.aabb.hit(ray, Interval::universe(), rec, options)
@@ -213,89 +185,90 @@ impl Grid {
         }
     }
 
+    // TODO: could be removed
     pub fn traverse_2(&self, ray: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, options: &Options) -> bool {
         if let Some(cellBox) = self.get_grid_box_from_point(*ray.origin()) {
             if !cellBox.objects.is_empty() {
-                let mut hitCopy = rec.clone();
-                if cellBox.hit(self, ray, ray_t, &mut hitCopy, data, options) {
-                    *rec = hitCopy.clone();
+                let mut hit_copy = rec.clone();
+                if cellBox.hit(self, ray, ray_t, &mut hit_copy, data, options) {
+                    *rec = hit_copy.clone();
                     return true;
                 }
             }
 
-            let mut cellIndex = cellBox.aabb.min;
-            let mut deltaT = Vec3::default();
-            let mut nextCrossingT = Vec3::default();
-            let rayOriginGrid = *ray.origin() - self.origin;
+            let mut cell_index = cellBox.aabb.min;
+            let mut delta_t = Vec3::default();
+            let mut next_crossing_t = Vec3::default();
+            let ray_origin_grid = *ray.origin() - self.origin;
             if ray.direction().x() < 0.0 {
-                deltaT.set_x(-1.0 * self.box_size.x() / ray.direction().x());
-                nextCrossingT.set_x(((rayOriginGrid.x() / self.box_size.x()).floor() * self.box_size.x() - rayOriginGrid.x()) / ray.direction().x());
+                delta_t.set_x(-1.0 * self.box_size.x() / ray.direction().x());
+                next_crossing_t.set_x(((ray_origin_grid.x() / self.box_size.x()).floor() * self.box_size.x() - ray_origin_grid.x()) / ray.direction().x());
             } else {
-                deltaT.set_x(self.box_size.x() / ray.direction().x());
-                nextCrossingT.set_x((((rayOriginGrid.x() / self.box_size.x()).floor() + 1.0) * self.box_size.x() - rayOriginGrid.x()) / ray.direction().x());
+                delta_t.set_x(self.box_size.x() / ray.direction().x());
+                next_crossing_t.set_x((((ray_origin_grid.x() / self.box_size.x()).floor() + 1.0) * self.box_size.x() - ray_origin_grid.x()) / ray.direction().x());
             }
             if ray.direction().y() < 0.0 {
-                deltaT.set_y(-1.0 * self.box_size.y() / ray.direction().y());
-                nextCrossingT.set_y(((rayOriginGrid.y() / self.box_size.y()).floor() * self.box_size.y() - rayOriginGrid.y()) / ray.direction().y());
+                delta_t.set_y(-1.0 * self.box_size.y() / ray.direction().y());
+                next_crossing_t.set_y(((ray_origin_grid.y() / self.box_size.y()).floor() * self.box_size.y() - ray_origin_grid.y()) / ray.direction().y());
             } else {
-                deltaT.set_y(self.box_size.y() / ray.direction().y());
-                nextCrossingT.set_y((((rayOriginGrid.y() / self.box_size.y()).floor() + 1.0) * self.box_size.y() - rayOriginGrid.y()) / ray.direction().y());
+                delta_t.set_y(self.box_size.y() / ray.direction().y());
+                next_crossing_t.set_y((((ray_origin_grid.y() / self.box_size.y()).floor() + 1.0) * self.box_size.y() - ray_origin_grid.y()) / ray.direction().y());
             }
             if ray.direction().z() < 0.0 {
-                deltaT.set_z(-1.0 * self.box_size.z() / ray.direction().z());
-                nextCrossingT.set_z(((rayOriginGrid.z() / self.box_size.z()).floor() * self.box_size.z() - rayOriginGrid.z()) / ray.direction().z());
+                delta_t.set_z(-1.0 * self.box_size.z() / ray.direction().z());
+                next_crossing_t.set_z(((ray_origin_grid.z() / self.box_size.z()).floor() * self.box_size.z() - ray_origin_grid.z()) / ray.direction().z());
             } else {
-                deltaT.set_z(self.box_size.z() / ray.direction().z());
-                nextCrossingT.set_z((((rayOriginGrid.z() / self.box_size.z()).floor() + 1.0) * self.box_size.z() - rayOriginGrid.z()) / ray.direction().z());
+                delta_t.set_z(self.box_size.z() / ray.direction().z());
+                next_crossing_t.set_z((((ray_origin_grid.z() / self.box_size.z()).floor() + 1.0) * self.box_size.z() - ray_origin_grid.z()) / ray.direction().z());
             }
 
             let mut t = 0.0;
             loop {
-                if nextCrossingT.x() < nextCrossingT.y() {
-                    if nextCrossingT.x() < nextCrossingT.z() {
-                        t = nextCrossingT.x();
-                        nextCrossingT.set_x(nextCrossingT.x() + deltaT.x());
+                if next_crossing_t.x() < next_crossing_t.y() {
+                    if next_crossing_t.x() < next_crossing_t.z() {
+                        t = next_crossing_t.x();
+                        next_crossing_t.set_x(next_crossing_t.x() + delta_t.x());
                         if (ray.direction().x() < 0.0) {
-                            cellIndex.set_x(cellIndex.x() - self.box_size.x());
+                            cell_index.set_x(cell_index.x() - self.box_size.x());
                         } else {
-                            cellIndex.set_x(cellIndex.x() + self.box_size.x());
+                            cell_index.set_x(cell_index.x() + self.box_size.x());
                         }
                     } else {
-                        t = nextCrossingT.z();
-                        nextCrossingT.set_z(nextCrossingT.z() + deltaT.z());
+                        t = next_crossing_t.z();
+                        next_crossing_t.set_z(next_crossing_t.z() + delta_t.z());
                         if ray.direction().z() < 0.0 {
-                            cellIndex.set_z(cellIndex.z() - self.box_size.z());
+                            cell_index.set_z(cell_index.z() - self.box_size.z());
                         } else {
-                            cellIndex.set_z(cellIndex.z() + self.box_size.z());
+                            cell_index.set_z(cell_index.z() + self.box_size.z());
                         }
                     }
                 } else {
-                    if (nextCrossingT.y() < nextCrossingT.z()) {
-                        t = nextCrossingT.y();
-                        nextCrossingT.set_y(nextCrossingT.y() + deltaT.y());
+                    if (next_crossing_t.y() < next_crossing_t.z()) {
+                        t = next_crossing_t.y();
+                        next_crossing_t.set_y(next_crossing_t.y() + delta_t.y());
                         if ray.direction().y() < 0.0 {
-                            cellIndex.set_y(cellIndex.y() - self.box_size.y());
+                            cell_index.set_y(cell_index.y() - self.box_size.y());
                         } else {
-                            cellIndex.set_y(cellIndex.y() + self.box_size.y());
+                            cell_index.set_y(cell_index.y() + self.box_size.y());
                         }
                     } else {
-                        t = nextCrossingT.z();
-                        nextCrossingT.set_z(nextCrossingT.z() + deltaT.z());
+                        t = next_crossing_t.z();
+                        next_crossing_t.set_z(next_crossing_t.z() + delta_t.z());
                         if ray.direction().z() < 0.0 {
-                            cellIndex.set_z(cellIndex.z() - self.box_size.z());
+                            cell_index.set_z(cell_index.z() - self.box_size.z());
                         } else {
-                            cellIndex.set_z(cellIndex.z() + self.box_size.z());
+                            cell_index.set_z(cell_index.z() + self.box_size.z());
                         }
                     }
-                    if self.outside(cellIndex) {
+                    if self.outside(cell_index) {
                         // todo: put debug stuff here if no workey
                         break;
                     }
-                    if let Some(current_box) = self.get_grid_box_from_xyz(cellIndex) {
+                    if let Some(current_box) = self.get_grid_box_from_xyz(cell_index) {
                         if !current_box.objects.is_empty() {
-                            let mut hitCopy = rec.clone();
-                            if current_box.hit(self, ray, ray_t, &mut hitCopy, data, options) {
-                                *rec = hitCopy.clone();
+                            let mut hit_copy = rec.clone();
+                            if current_box.hit(self, ray, ray_t, &mut hit_copy, data, options) {
+                                *rec = hit_copy.clone();
                                 return true;
                             }
                         }
@@ -305,32 +278,6 @@ impl Grid {
         }
 
 
-        false
-    }
-
-    pub fn traverse_brute(&self, ray: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, options: &Options) -> bool {
-        if let Some(cellBox) = self.get_box_enter(ray) {
-            let mut rec_copy = rec.clone();
-            let mut hit_anything = false;
-            if !cellBox.objects.is_empty() {
-                if cellBox.hit(self, ray, ray_t, &mut rec_copy, data, options) {
-                    *rec = rec_copy.clone();
-                    hit_anything = true;
-                }
-            }
-
-            if !hit_anything {
-                for i in &self.boxes[..] {
-                    if !i.objects.is_empty() {
-                        if i.hit(self, ray, ray_t, &mut rec_copy, data, options) {
-                            *rec = rec_copy.clone();
-                            hit_anything = true;
-                        }
-                    }
-                }
-            }
-            return hit_anything;
-        }
         false
     }
 
@@ -374,6 +321,8 @@ impl Grid {
         i
     }
 
+    
+    /// TODO: debug should be removed later
     pub fn print_boxes(&self, hits: Vec<usize>) {
         for (i, b) in self.boxes.iter().enumerate() {
             if !b.objects.is_empty() && hits.contains(&i) {
@@ -382,6 +331,7 @@ impl Grid {
         }
     }
 
+    /// Returns true if the point is outside the grid
     pub fn outside(&self, t_max: Vec3) -> bool {
         let t_max_updated = t_max; // - self.origin;
         if (!self.aabb.point_inside(t_max_updated)) {
@@ -389,22 +339,6 @@ impl Grid {
             return true;
         }
         false
-    }
-
-    pub fn step(&self, ray: &Ray) -> Vec3 {
-        let mut stepx = self.box_size.x();
-        if ray.direction().x() < 0.0 {
-            stepx *= -1.0;
-        }
-        let mut stepy = self.box_size.y();
-        if ray.direction().y() < 0.0 {
-            stepy *= -1.0;
-        }
-        let mut stepz = self.box_size.z();
-        if ray.direction().z() < 0.0 {
-            stepz *= -1.0;
-        }
-        Vec3::new(stepx, stepy, stepz)
     }
 
     /// Calculates the grid box given a point in O(1) time
@@ -421,6 +355,7 @@ impl Grid {
         Some(&self.boxes[index])
     }
 
+    /// Calculates the grid box from an xyz vector, which represents the minimum corner of a gridbox
     pub fn get_grid_box_from_xyz(&self, xyz: Vec3) -> Option<&GridBox> {
         let index = Self::get_index(Point3::new(xyz.x().floor(), xyz.y().floor(), xyz.z().floor()), self.box_size, self.total_size);
         if index >= self.boxes.len() {
@@ -472,29 +407,32 @@ pub struct GridBox {
 }
 
 impl GridBox {
+    
     pub fn new(origin: Point3, size: Vec3) -> Self {
         let aabb: AABB = AABB::new(origin, origin + size);
         Self { aabb, objects: Vec::new() }
     }
 
+    /// Adds an object into the grid box if (part of) it is inside the box's AABB
     pub fn try_add(&mut self, object: &AABB, array_pos: usize) {
         if self.aabb.inside(object) || object.inside(&self.aabb) {
             self.objects.push(array_pos);
         }
     }
 
+    /// Checks for all objects if they should be in the grid box
     pub fn try_add_all(&mut self, objects: &Vec<Rc<dyn Hittable>>) {
         for (i, obj) in objects.iter().enumerate() {
             self.try_add(&obj.to_aabb(), i);
         }
     }
 
+    /// Loops through all objects in the gridbox to see if the ray hits anything.
     pub fn hit(&self, grid: &Grid, ray: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, _options: &Options) -> bool {
         data.add_gridbox_intersection_check();
         let mut hit_anything = false;
         let mut closest_so_far = ray_t.max;
         let objects: Vec<_> = self.objects.iter().map(|&i| &grid.objects[i]).collect();
-        // println!("{:?}", objects.iter().map(|o|o.centroid()).collect::<Vec<Point3>>());
         for object in objects {
             data.add_intersection_check();
             if object.hit(ray, Interval::new(ray_t.min, closest_so_far), rec, data) {
