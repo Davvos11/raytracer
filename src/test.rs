@@ -216,10 +216,24 @@ fn test_dragon_4_bvh_sah_full() {
     run(settings);
 }
 #[test]
+fn test_dragon_4_grid_25() {
+    let mut settings = Cli::new_from_ply("scenes/dragon_recon/dragon_vrip_res4.ply".to_string());
+    settings.algorithm = IntersectionAlgorithm::Grid;
+    settings.grid_size = 25.0;
+    run(settings);
+}
+#[test]
 fn test_dragon_4_grid_5() {
     let mut settings = Cli::new_from_ply("scenes/dragon_recon/dragon_vrip_res4.ply".to_string());
     settings.algorithm = IntersectionAlgorithm::Grid;
     settings.grid_size = 5.0;
+    run(settings);
+}
+#[test]
+fn test_dragon_4_grid_1() {
+    let mut settings = Cli::new_from_ply("scenes/dragon_recon/dragon_vrip_res4.ply".to_string());
+    settings.algorithm = IntersectionAlgorithm::Grid;
+    settings.grid_size = 1.0;
     run(settings);
 }
 
