@@ -181,6 +181,7 @@ impl Grid {
         // println!("{:?}", &grid_box);
         // TODO this should probably not happen
         if depth > 10 { return false; }
+        data.add_traversal_step();
         // Check for primitive intersections in this box
         if grid_box.hit(self, ray, ray_t, rec, data ,options) {
             // println!("Hit item! {:?}", rec.p);
