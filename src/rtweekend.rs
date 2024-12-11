@@ -23,7 +23,10 @@ pub struct Cli {
     pub grid_size: f64,
     /// Print scene statistics (as LaTeX table row) and exit
     #[arg(long)]
-    pub stats: bool
+    pub stats: bool,
+    /// Camera position (only for dragon scene)
+    #[arg(long)]
+    pub camera: Option<usize>,
 }
 
 #[allow(unused)]
@@ -70,6 +73,7 @@ pub struct Options {
     pub options: Vec<AlgorithmOptions>,
     pub draw_boxes: bool,
     pub grid_size: f64,
+    pub camera: Option<usize>,
 }
 
 impl Display for Options {
@@ -77,6 +81,9 @@ impl Display for Options {
         let mut option_strs = self.options.iter().map(|x| format!("{x:?}")).collect::<Vec<_>>();
         if self.algorithm == IntersectionAlgorithm::Grid {
             option_strs.push(format!("size={}", self.grid_size));
+        }
+        if let Some(pos) = self.camera {
+            option_strs.push(format!("pos{}", pos));
         }
         let joined = option_strs.join("_");
         f.write_str(&joined)
@@ -99,6 +106,7 @@ impl Options {
             draw_boxes: args.options.contains(&AlgorithmOptions::DrawBoxes),
             options: args.options.clone(),
             grid_size: args.grid_size,
+            camera: args.camera,
         }
     }
 }

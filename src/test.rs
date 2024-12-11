@@ -237,3 +237,75 @@ fn test_dragon_4_grid_1() {
     run(settings);
 }
 
+
+#[allow(unused)]
+mod camera {
+    use crate::rtweekend::{AlgorithmOptions, Cli, IntersectionAlgorithm};
+    use crate::run;
+
+    #[test]
+    fn sah_pos_0() {
+        let mut settings = Cli::new_from_ply("scenes/dragon_recon/dragon_vrip_res4.ply".to_string());
+        settings.algorithm = IntersectionAlgorithm::BVH;
+        settings.add_option(AlgorithmOptions::BvhSahPosition);
+        settings.camera = Some(0);
+        run(settings);
+    }
+    #[test]
+    fn sah_pos_1() {
+        let mut settings = Cli::new_from_ply("scenes/dragon_recon/dragon_vrip_res4.ply".to_string());
+        settings.algorithm = IntersectionAlgorithm::BVH;
+        settings.add_option(AlgorithmOptions::BvhSahPosition);
+        settings.camera = Some(1);
+        run(settings);
+    }
+    #[test]
+    fn sah_pos_2() {
+        let mut settings = Cli::new_from_ply("scenes/dragon_recon/dragon_vrip_res4.ply".to_string());
+        settings.algorithm = IntersectionAlgorithm::BVH;
+        settings.add_option(AlgorithmOptions::BvhSahPosition);
+        settings.camera = Some(2);
+        run(settings);
+    }
+    #[test]
+    fn sah_pos_3() {
+        let mut settings = Cli::new_from_ply("scenes/dragon_recon/dragon_vrip_res4.ply".to_string());
+        settings.algorithm = IntersectionAlgorithm::BVH;
+        settings.add_option(AlgorithmOptions::BvhSahPosition);
+        settings.camera = Some(3);
+        run(settings);
+    }
+
+    #[test]
+    fn grid_pos_0() {
+        let mut settings = Cli::new_from_ply("scenes/dragon_recon/dragon_vrip_res4.ply".to_string());
+        settings.algorithm = IntersectionAlgorithm::Grid;
+        settings.grid_size = 5.0;
+        settings.camera = Some(0);
+        run(settings);
+    }
+    #[test]
+    fn grid_pos_1() {
+        let mut settings = Cli::new_from_ply("scenes/dragon_recon/dragon_vrip_res4.ply".to_string());
+        settings.algorithm = IntersectionAlgorithm::Grid;
+        settings.grid_size = 5.0;
+        settings.camera = Some(1);
+        run(settings);
+    }
+    #[test]
+    fn grid_pos_2() {
+        let mut settings = Cli::new_from_ply("scenes/dragon_recon/dragon_vrip_res4.ply".to_string());
+        settings.algorithm = IntersectionAlgorithm::Grid;
+        settings.grid_size = 5.0;
+        settings.camera = Some(2);
+        run(settings);
+    }
+    #[test]
+    fn grid_pos_3() {
+        let mut settings = Cli::new_from_ply("scenes/dragon_recon/dragon_vrip_res4.ply".to_string());
+        settings.algorithm = IntersectionAlgorithm::Grid;
+        settings.grid_size = 5.0;
+        settings.camera = Some(3);
+        run(settings);
+    }
+}

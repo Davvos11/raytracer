@@ -94,8 +94,16 @@ fn run(args: Cli) {
     } else if filename.starts_with("scenes/dragon") {
         cam.vfov = 20.0;
         cam.focus_dist = 50.0;
-        cam.look_from = Point3::new(0.0, 15.0, 50.0);
         cam.look_at = Point3::new(0.0, 12.0, 0.0);
+        cam.look_from =
+            match args.camera {
+                None | Some(0) => { Point3::new(0.0, 15.0, 50.0) }
+                Some(1) => { Point3::new(-50.0, 15.0, 20.0) }
+                Some(2) => { Point3::new(80.0, 15.0, 10.0) }
+                Some(3) => { Point3::new(10.0, 50.0, 25.0) }
+                Some(4) => { Point3::new(-10.0, 30.0, 25.0) }
+                Some(_) => {panic!("Camera position does not exist")}
+            };
     } else {
         cam.vfov = 90.0;
         cam.look_from = Point3::new(0.0, 0.0, 0.0);
