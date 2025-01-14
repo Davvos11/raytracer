@@ -45,6 +45,7 @@ Any time a image is generated using any of the above commands, statistics are co
 - [x] Importing PLY files, for example the [Stanford Models](https://graphics.stanford.edu/data/3Dscanrep/)
 - [x] BVH using SAH, based on slides from _Advanced Graphics_
 - [x] Grid acceleration, based on [Amanatides, Woo, et al.](http://www.cse.yorku.ca/~amana/research/grid.pdf)
+- [ ] Wavefront GPU Path Tracing
 
 ## Acknowledgments
 This repository includes some `ply` models from the [Stanford Models](https://graphics.stanford.edu/data/3Dscanrep/).

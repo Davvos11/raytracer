@@ -12,9 +12,6 @@ pub struct Cli {
     #[arg(long, value_enum, default_value_t = FileFormat::default())]
     /// The input file format
     pub format: FileFormat,
-    #[arg(short='t', long, value_enum, default_value_t = TracingAlgorithm::default())]
-    /// The tracing algorithm (ray tracing or path tracing)
-    pub trace_algorithm: TracingAlgorithm,
     #[arg(long, value_enum, default_value_t = IntersectionAlgorithm::default())]
     /// The intersection algorithm
     pub algorithm: IntersectionAlgorithm,
@@ -75,26 +72,6 @@ impl Display for IntersectionAlgorithm {
             }
             IntersectionAlgorithm::Grid => {
                 write!(f, "grid")
-            }
-        }
-    }
-}
-
-#[derive(Default, Copy, Clone, ValueEnum, Serialize, Debug, PartialEq)]
-pub enum TracingAlgorithm {
-    Ray,
-    #[default]
-    Path,
-}
-
-impl Display for TracingAlgorithm {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TracingAlgorithm::Ray => {
-                write!(f, "ray")
-            }
-            TracingAlgorithm::Path => {
-                write!(f, "path")
             }
         }
     }
@@ -197,7 +174,6 @@ pub fn random_double_range(min: f64, max: f64) -> f64 {
 
 pub fn get_output_filename(
     input_path: &String,
-    trace_algorithm: &TracingAlgorithm,
     algorithm: &IntersectionAlgorithm,
     options: &Options,
 ) -> Option<String> {
@@ -212,7 +188,7 @@ pub fn get_output_filename(
             &format!("-{options_str}")
         };
         let new_file_name = format!(
-            "output/{}-{trace_algorithm}-{algorithm}{options_str}.ppm",
+            "output/{}-{algorithm}{options_str}.ppm",
             stem.to_string_lossy()
         );
         return Some(new_file_name);
