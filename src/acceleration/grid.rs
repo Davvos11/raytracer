@@ -146,6 +146,7 @@ impl Grid {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     /// Traverses the grid until the gridbox containing the object the ray intersects with is found
     fn traverse(&self, grid_box: &GridBox, ray: &Ray, ray_t: Interval, rec: &mut HitRecord, data: &mut Data, options: &Options, depth: u32) -> bool {
         if depth > self.total_size.z() as u32 { return false; }
@@ -184,7 +185,7 @@ impl Grid {
     /// Returns true if the point is outside the grid
     pub fn outside(&self, t_max: Vec3) -> bool {
         let t_max_updated = t_max;
-        if (!self.aabb.point_inside(t_max_updated)) {
+        if !self.aabb.point_inside(t_max_updated) {
             return true;
         }
         false

@@ -1,14 +1,14 @@
 use crate::color::{color_to_string, Color};
+use crate::data::Data;
 use crate::hittable::{HitRecord, Hittable};
+use crate::hittable_list::HittableList;
 use crate::interval::Interval;
 use crate::ray::Ray;
-use crate::rtweekend::{degrees_to_radians, random_double, Options, TracingAlgorithm};
+use crate::rtweekend::{degrees_to_radians, random_double, TracingAlgorithm};
 use crate::vec3::{Point3, Vec3};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::io;
 use std::io::Write;
-use crate::data::Data;
-use crate::hittable_list::HittableList;
 
 #[derive(Default)]
 pub struct Camera {
@@ -194,7 +194,7 @@ fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data) -> Colo
 }
 
 /// Determine the ray colour for the ray tracing algorithm
-fn ray_color_path(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data) -> Color {
+fn ray_color_path(_r: &Ray, _depth: u32, _world: &dyn Hittable, _data: &mut Data) -> Color {
     todo!()
 }
 

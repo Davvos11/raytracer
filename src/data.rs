@@ -1,8 +1,7 @@
-﻿use std::fs::OpenOptions;
-use std::io::Write;
-use std::path::{Path, PathBuf};
+﻿use crate::rtweekend::{IntersectionAlgorithm, Options};
 use serde::Serialize;
-use crate::rtweekend::{AlgorithmOptions, IntersectionAlgorithm, Options};
+use std::fs::OpenOptions;
+use std::path::{Path, PathBuf};
 
 #[derive(Default, Serialize)]
 pub struct Data {
@@ -55,11 +54,11 @@ impl Data {
     pub fn write_to_csv(&self, filename: &PathBuf) {
         let file_exists = Path::new(filename).exists();
 
-        let mut file = OpenOptions::new()
+        let file = OpenOptions::new()
             .create(true)
             .append(true)
             .open(filename)
-            .expect(&format!("Cannot open {filename:?}"));
+            .unwrap_or_else(|_| panic!("Cannot open {filename:?}"));
 
 
         let mut writer = csv::WriterBuilder::new()
@@ -125,7 +124,7 @@ impl Data {
         self.overlapping_aabb += 1;
     }
 
-    pub fn gridbox_intersection_checks(&self) -> usize { self.intersection_checks }
+    pub fn gridbox_intersection_checks(&self) -> usize { self.gridbox_intersection_checks }
 
     pub fn add_gridbox_intersection_check(&mut self) { self.gridbox_intersection_checks += 1; }
 }

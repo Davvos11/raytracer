@@ -1,15 +1,14 @@
 use crate::camera::Camera;
+use crate::color::Color;
+use crate::data::Data;
+use crate::material::{Lambertian, MaterialType};
+use crate::parser::parse_ply;
+use crate::rtweekend::{check_valid_options, get_output_filename, Cli, FileFormat, Options};
 use crate::vec3::{Point3, Vec3};
 use clap::Parser;
 use std::fs::File;
 use std::rc::Rc;
 use std::time::Instant;
-use crate::color::Color;
-use crate::acceleration::grid::Grid;
-use crate::data::Data;
-use crate::material::{Lambertian, MaterialType};
-use crate::parser::parse_ply;
-use crate::rtweekend::{check_valid_options, get_output_filename, AlgorithmOptions, Cli, FileFormat, IntersectionAlgorithm, Options};
 
 mod vec3;
 mod color;
@@ -26,6 +25,7 @@ mod triangle;
 mod acceleration;
 mod data;
 mod parser;
+#[cfg(test)]
 mod test;
 
 fn main() {

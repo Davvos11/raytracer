@@ -55,10 +55,6 @@ impl Default for BvhNode {
 }
 
 impl BvhNode {
-    pub fn new_node(aabb: AABB, left: usize, right: usize) -> Self {
-        Self { aabb, is_leaf: false, left, right, first: 0, count: 0 }
-    }
-
     /// Create a new leaf node
     /// `first` is relative to the provided `objects` array
     /// `offset + first` will be the index into the corresponding `Bvh.objects`
@@ -227,9 +223,8 @@ impl BvhNode {
                 } else if far.hit(r, ray_t, bvh, rec, data, options) {
                     hit_anything = true;
                 }
-            } else if left_distance.is_some() && left.hit(r, ray_t, bvh, rec, data, options) {
-                hit_anything = true;
-            } else if right_distance.is_some() && right.hit(r, ray_t, bvh, rec, data, options) {
+            } else if left_distance.is_some() && left.hit(r, ray_t, bvh, rec, data, options) ||
+                right_distance.is_some() && right.hit(r, ray_t, bvh, rec, data, options) {
                 hit_anything = true;
             }
         }

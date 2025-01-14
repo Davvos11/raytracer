@@ -25,6 +25,7 @@ pub struct HittableList {
 }
 
 impl HittableList {
+    #[allow(dead_code)]
     pub fn new(object: Rc<dyn Hittable>) -> Self {
         Self { objects: vec![object], algorithm: Default::default(), options: Default::default(), bvh: None, grid: None }
     }
@@ -51,6 +52,7 @@ impl HittableList {
         }
     }
 
+    #[allow(dead_code)]
     pub fn clear(&mut self) { self.objects.clear(); }
 
     pub fn add(&mut self, object: Rc<dyn Hittable>) {

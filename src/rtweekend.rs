@@ -55,6 +55,7 @@ impl Cli {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Default, Copy, Clone, ValueEnum, Serialize, Debug, PartialEq)]
 pub enum IntersectionAlgorithm {
     Naive,
@@ -99,6 +100,7 @@ impl Display for TracingAlgorithm {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Default, Copy, Clone, ValueEnum)]
 pub enum FileFormat {
     #[default]

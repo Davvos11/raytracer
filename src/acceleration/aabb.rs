@@ -1,12 +1,12 @@
-use std::mem::offset_of;
-use std::ops::Add;
 use crate::acceleration::grid::Grid;
 use crate::hittable::HitRecord;
 use crate::interval::Interval;
 use crate::ray::Ray;
-use crate::rtweekend::{AlgorithmOptions, Options};
-use crate::vec3::{Point3, Vec3};
+use crate::rtweekend::Options;
+use crate::vec3::Point3;
+use std::ops::Add;
 
+#[allow(clippy::upper_case_acronyms)]
 /// BVH and AABB from course slides
 #[derive(Default, Clone, Debug)]
 pub struct AABB {
