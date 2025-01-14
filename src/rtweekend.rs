@@ -1,9 +1,9 @@
-use std::fmt::{Display, Formatter};
-use std::path::Path;
+use crate::rtweekend::AlgorithmOptions::{BvhNaive, BvhSahPlane, BvhSahPosition};
 use clap::{Parser, ValueEnum};
 use rand::Rng;
 use serde::{Serialize, Serializer};
-use crate::rtweekend::AlgorithmOptions::{BvhNaive, BvhSahPlane, BvhSahPosition};
+use std::fmt::{Display, Formatter};
+use std::path::Path;
 
 #[derive(Parser, Default)]
 pub struct Cli {
@@ -12,6 +12,9 @@ pub struct Cli {
     #[arg(long, value_enum, default_value_t = FileFormat::default())]
     /// The input file format
     pub format: FileFormat,
+    #[arg(short='t', long, value_enum, default_value_t = TracingAlgorithm::default())]
+    /// The tracing algorithm (ray tracing or path tracing)
+    pub trace_algorithm: TracingAlgorithm,
     #[arg(long, value_enum, default_value_t = IntersectionAlgorithm::default())]
     /// The intersection algorithm
     pub algorithm: IntersectionAlgorithm,
@@ -31,7 +34,7 @@ pub struct Cli {
 
 #[allow(unused)]
 impl Cli {
-    pub fn new_from_json(filename: String) -> Self{
+    pub fn new_from_json(filename: String) -> Self {
         Self {
             filename: Some(filename),
             format: FileFormat::Native,
@@ -39,7 +42,7 @@ impl Cli {
         }
     }
 
-    pub fn new_from_ply(filename: String) -> Self{
+    pub fn new_from_ply(filename: String) -> Self {
         Self {
             filename: Some(filename),
             format: FileFormat::PLY,
@@ -57,7 +60,43 @@ pub enum IntersectionAlgorithm {
     Naive,
     #[default]
     BVH,
-    Grid
+    Grid,
+}
+
+impl Display for IntersectionAlgorithm {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IntersectionAlgorithm::Naive => {
+                write!(f, "naive")
+            }
+            IntersectionAlgorithm::BVH => {
+                write!(f, "bvh")
+            }
+            IntersectionAlgorithm::Grid => {
+                write!(f, "grid")
+            }
+        }
+    }
+}
+
+#[derive(Default, Copy, Clone, ValueEnum, Serialize, Debug, PartialEq)]
+pub enum TracingAlgorithm {
+    Ray,
+    #[default]
+    Path,
+}
+
+impl Display for TracingAlgorithm {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TracingAlgorithm::Ray => {
+                write!(f, "ray")
+            }
+            TracingAlgorithm::Path => {
+                write!(f, "path")
+            }
+        }
+    }
 }
 
 #[derive(Default, Copy, Clone, ValueEnum)]
@@ -78,7 +117,11 @@ pub struct Options {
 
 impl Display for Options {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut option_strs = self.options.iter().map(|x| format!("{x:?}")).collect::<Vec<_>>();
+        let mut option_strs = self
+            .options
+            .iter()
+            .map(|x| format!("{x:?}"))
+            .collect::<Vec<_>>();
         if self.algorithm == IntersectionAlgorithm::Grid {
             option_strs.push(format!("size={}", self.grid_size));
         }
@@ -129,19 +172,12 @@ pub fn check_valid_options(options: &[AlgorithmOptions]) -> Option<String> {
     // Only one of the different Bvh options is allowed
     let bvh_options = options.iter().filter(|&x| BVH_OPTIONS.contains(x));
     if bvh_options.clone().count() > 1 {
-        return Some(format!("Can't have the following options at the same time: {:?}", bvh_options.collect::<Vec<_>>()));
+        return Some(format!(
+            "Can't have the following options at the same time: {:?}",
+            bvh_options.collect::<Vec<_>>()
+        ));
     }
     None
-}
-
-impl Display for IntersectionAlgorithm {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            IntersectionAlgorithm::Naive => {write!(f, "naive")}
-            IntersectionAlgorithm::BVH => {write!(f, "bvh")}
-            IntersectionAlgorithm::Grid => {write!(f, "grid")}
-        }
-    }
 }
 
 pub fn degrees_to_radians(degrees: f64) -> f64 {
@@ -157,14 +193,26 @@ pub fn random_double_range(min: f64, max: f64) -> f64 {
     min + (max - min) * random_double()
 }
 
-pub fn get_output_filename(input_path: &String, algorithm: &IntersectionAlgorithm, options: &Options) -> Option<String> {
+pub fn get_output_filename(
+    input_path: &String,
+    trace_algorithm: &TracingAlgorithm,
+    algorithm: &IntersectionAlgorithm,
+    options: &Options,
+) -> Option<String> {
     let path = Path::new(input_path);
     // Extract the file stem (name without extension)
     if let Some(stem) = path.file_stem() {
         // Construct the new file name with the desired extension
         let options_str = options.to_string();
-        let options_str = if options_str.is_empty() { "" } else { &format!("-{options_str}")};
-        let new_file_name = format!("output/{}-{algorithm}{options_str}.ppm", stem.to_string_lossy());
+        let options_str = if options_str.is_empty() {
+            ""
+        } else {
+            &format!("-{options_str}")
+        };
+        let new_file_name = format!(
+            "output/{}-{trace_algorithm}-{algorithm}{options_str}.ppm",
+            stem.to_string_lossy()
+        );
         return Some(new_file_name);
     }
     None

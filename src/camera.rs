@@ -2,7 +2,7 @@ use crate::color::{color_to_string, Color};
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::ray::Ray;
-use crate::rtweekend::{degrees_to_radians, random_double, Options};
+use crate::rtweekend::{degrees_to_radians, random_double, Options, TracingAlgorithm};
 use crate::vec3::{Point3, Vec3};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::io;
@@ -12,6 +12,7 @@ use crate::hittable_list::HittableList;
 
 #[derive(Default)]
 pub struct Camera {
+    pub trace_algorithm: TracingAlgorithm,
     pub aspect_ratio: f64,
     pub image_width: u32,
     pub samples_per_pixel: u32,
@@ -69,7 +70,14 @@ impl Camera {
                 for _ in 0..self.samples_per_pixel {
                     data.add_primary_ray();
                     let r = self.get_ray(i, j);
-                    pixel_color += ray_color(&r, self.max_depth, world, data);
+                    pixel_color += match self.trace_algorithm {
+                        TracingAlgorithm::Ray => {
+                            ray_color(&r, self.max_depth, world, data)
+                        }
+                        TracingAlgorithm::Path => {
+                            ray_color_path(&r, self.max_depth, world, data)
+                        }
+                    };
                 }
 
                 let pixel = color_to_string(&(self.pixel_samples_scale * pixel_color));
@@ -149,6 +157,7 @@ impl Camera {
 }
 
 
+/// Determine the ray colour for the ray tracing algorithm
 fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data) -> Color {
     // Stop gathering light if the ray bounce limit is exceeded
     if depth == 0 {
@@ -184,6 +193,10 @@ fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data) -> Colo
     }
 }
 
+/// Determine the ray colour for the ray tracing algorithm
+fn ray_color_path(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data) -> Color {
+    todo!()
+}
 
 /// Returns the vector to a random point in the [-.5,-.5]-[+.5,+.5] unit square.
 fn sample_square() -> Vec3 {

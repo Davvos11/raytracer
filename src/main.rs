@@ -79,6 +79,7 @@ fn run(args: Cli) {
     world.options = options.clone();
 
     let mut cam = Camera::new();
+    cam.trace_algorithm = args.trace_algorithm;
     cam.aspect_ratio = 16.0 / 9.0;
     cam.image_width = 900;
     cam.samples_per_pixel = 50;
@@ -125,7 +126,7 @@ fn run(args: Cli) {
     }
 
     // Open file
-    let out_filename = get_output_filename(&filename, &world.algorithm, &options)
+    let out_filename = get_output_filename(&filename, &args.trace_algorithm, &world.algorithm, &options)
         .expect("Could not parse filename");
     let mut file = File::create(&out_filename)
         .expect("Could not open image file");
