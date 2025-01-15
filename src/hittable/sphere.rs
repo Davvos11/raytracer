@@ -1,13 +1,13 @@
 use std::f64::consts::PI;
 use crate::acceleration::aabb::AABB;
 use crate::hittable::{HitRecord, Hittable};
-use crate::interval::Interval;
-use crate::material::{Material, MaterialType};
-use crate::ray::Ray;
-use crate::vec3::Point3;
+use crate::value::interval::Interval;
+use crate::value::material::{Material, MaterialType};
+use crate::value::ray::Ray;
+use crate::value::vec3::Point3;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
-use crate::data::Data;
+use crate::value::data::Data;
 
 #[derive(Serialize, Deserialize)]
 pub struct Sphere {

@@ -1,10 +1,14 @@
 use std::rc::Rc;
 use crate::acceleration::aabb::AABB;
-use crate::data::Data;
-use crate::interval::Interval;
-use crate::material::{Material, MaterialType};
-use crate::ray::Ray;
-use crate::vec3::{Point3, Vec3};
+use crate::value::data::Data;
+use crate::value::interval::Interval;
+use crate::value::material::{Material, MaterialType};
+use crate::value::ray::Ray;
+use crate::value::vec3::{Point3, Vec3};
+
+pub mod sphere;
+pub mod hittable_list;
+pub mod triangle;
 
 #[derive(Default, Clone)]
 pub struct HitRecord {

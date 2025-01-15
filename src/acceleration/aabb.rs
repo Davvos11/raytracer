@@ -1,9 +1,9 @@
 use crate::acceleration::grid::Grid;
 use crate::hittable::HitRecord;
-use crate::interval::Interval;
-use crate::ray::Ray;
-use crate::rtweekend::Options;
-use crate::vec3::Point3;
+use crate::value::interval::Interval;
+use crate::value::ray::Ray;
+use crate::utils::rtweekend::Options;
+use crate::value::vec3::Point3;
 use std::ops::Add;
 
 #[allow(clippy::upper_case_acronyms)]

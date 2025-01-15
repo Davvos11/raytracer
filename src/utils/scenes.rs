@@ -1,11 +1,11 @@
 use std::rc::Rc;
-use crate::color::Color;
-use crate::hittable_list::HittableList;
-use crate::material::{Dielectric, Lambertian, Metal};
-use crate::rtweekend::{random_double, random_double_range};
-use crate::sphere::Sphere;
-use crate::triangle::Triangle;
-use crate::vec3::Point3;
+use crate::value::color::Color;
+use crate::hittable::hittable_list::HittableList;
+use crate::value::material::{Dielectric, Lambertian, Metal};
+use crate::utils::rtweekend::{random_double, random_double_range};
+use crate::hittable::sphere::Sphere;
+use crate::hittable::triangle::Triangle;
+use crate::value::vec3::Point3;
 
 #[allow(dead_code)]
 pub fn weekend_final() -> (HittableList, String) {

@@ -5,12 +5,12 @@ use std::rc::Rc;
 use ply_rs::parser::Parser;
 use ply_rs::ply::{DefaultElement, Property};
 use thiserror::Error;
-use crate::hittable_list::HittableList;
-use crate::material::Material;
-use crate::parser::ParseError::{Parse, ParseElement, ParseValue};
-use crate::parser::ParseValueError::ParseProperty;
-use crate::triangle::Triangle;
-use crate::vec3::Vec3;
+use crate::hittable::hittable_list::HittableList;
+use crate::value::material::Material;
+use crate::utils::parser::ParseError::{Parse, ParseElement, ParseValue};
+use crate::utils::parser::ParseValueError::ParseProperty;
+use crate::hittable::triangle::Triangle;
+use crate::value::vec3::Vec3;
 
 pub fn parse_ply(path: &PathBuf, mat: Rc<dyn Material>) -> Result<HittableList, ParseError> {
     let mut file = File::open(path)?;

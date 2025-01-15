@@ -1,11 +1,11 @@
 use crate::acceleration::aabb::AABB;
-use crate::data::Data;
+use crate::value::data::Data;
 use crate::hittable::{HitRecord, Hittable};
-use crate::hittable_list::objects_to_aabb;
-use crate::interval::Interval;
-use crate::ray::Ray;
-use crate::rtweekend::AlgorithmOptions::{BvhNaive, BvhSahPlane};
-use crate::rtweekend::Options;
+use crate::hittable::hittable_list::objects_to_aabb;
+use crate::value::interval::Interval;
+use crate::value::ray::Ray;
+use crate::utils::rtweekend::AlgorithmOptions::{BvhNaive, BvhSahPlane};
+use crate::utils::rtweekend::Options;
 use std::rc::Rc;
 
 /// BVH and AABB from course slides

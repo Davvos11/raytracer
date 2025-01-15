@@ -1,11 +1,11 @@
-use crate::color::{color_to_string, Color};
-use crate::data::Data;
+use crate::value::color::{color_to_string, Color};
+use crate::value::data::Data;
 use crate::hittable::{HitRecord, Hittable};
-use crate::hittable_list::HittableList;
-use crate::interval::Interval;
-use crate::ray::Ray;
-use crate::rtweekend::{degrees_to_radians, random_double};
-use crate::vec3::{Point3, Vec3};
+use crate::hittable::hittable_list::HittableList;
+use crate::value::interval::Interval;
+use crate::value::ray::Ray;
+use crate::utils::rtweekend::{degrees_to_radians, random_double};
+use crate::value::vec3::{Point3, Vec3};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::io;
 use std::io::Write;

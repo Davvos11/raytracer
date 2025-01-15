@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub};
 use serde::{Deserialize, Serialize};
-use crate::rtweekend::{random_double, random_double_range};
+use crate::utils::rtweekend::{random_double, random_double_range};
 
 #[derive(Default, Copy, Clone, Serialize, Deserialize, Debug)]
 pub struct Vec3 {

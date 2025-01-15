@@ -1,14 +1,14 @@
 use crate::acceleration::aabb::AABB;
 use crate::acceleration::bvh::Bvh;
-use crate::data::Data;
+use crate::value::data::Data;
 use crate::hittable::{HitRecord, Hittable};
-use crate::interval::Interval;
-use crate::ray::Ray;
-use crate::rtweekend::{IntersectionAlgorithm, Options};
+use crate::value::interval::Interval;
+use crate::value::ray::Ray;
+use crate::utils::rtweekend::{IntersectionAlgorithm, Options};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 use crate::acceleration::grid::Grid;
-use crate::vec3::{Point3, Vec3};
+use crate::value::vec3::{Point3, Vec3};
 use std::time::Instant;
 
 #[derive(Default, Serialize, Deserialize)]

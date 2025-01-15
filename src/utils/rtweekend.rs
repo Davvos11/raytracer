@@ -1,4 +1,4 @@
-use crate::rtweekend::AlgorithmOptions::{BvhNaive, BvhSahPlane, BvhSahPosition};
+use crate::utils::rtweekend::AlgorithmOptions::{BvhNaive, BvhSahPlane, BvhSahPosition};
 use clap::{Parser, ValueEnum};
 use rand::Rng;
 use serde::{Serialize, Serializer};

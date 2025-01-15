@@ -1,30 +1,21 @@
 use crate::camera::Camera;
-use crate::color::Color;
-use crate::data::Data;
-use crate::material::{Lambertian, MaterialType};
-use crate::parser::parse_ply;
-use crate::rtweekend::{check_valid_options, get_output_filename, Cli, FileFormat, Options};
-use crate::vec3::{Point3, Vec3};
+use value::color::Color;
+use value::data::Data;
+use value::material::{Lambertian, MaterialType};
+use utils::parser::parse_ply;
+use utils::rtweekend::{check_valid_options, get_output_filename, Cli, FileFormat, Options};
+use value::vec3::{Point3, Vec3};
 use clap::Parser;
 use std::fs::File;
 use std::rc::Rc;
 use std::time::Instant;
+use utils::scenes;
 
-mod vec3;
-mod color;
-mod ray;
 mod hittable;
-mod sphere;
-mod hittable_list;
-mod rtweekend;
-mod interval;
 mod camera;
-mod material;
-mod scenes;
-mod triangle;
 mod acceleration;
-mod data;
-mod parser;
+mod value;
+mod utils;
 #[cfg(test)]
 mod test;
 

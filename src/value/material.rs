@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
-use crate::color::Color;
+use crate::value::color::Color;
 use crate::hittable::HitRecord;
-use crate::ray::Ray;
-use crate::rtweekend::random_double;
-use crate::vec3::Vec3;
+use crate::value::ray::Ray;
+use crate::utils::rtweekend::random_double;
+use crate::value::vec3::Vec3;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum MaterialType {

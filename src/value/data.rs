@@ -1,4 +1,4 @@
-﻿use crate::rtweekend::{IntersectionAlgorithm, Options};
+﻿use crate::utils::rtweekend::{IntersectionAlgorithm, Options};
 use serde::Serialize;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};

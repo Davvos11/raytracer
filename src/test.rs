@@ -1,4 +1,4 @@
-use crate::rtweekend::{AlgorithmOptions, IntersectionAlgorithm};
+use crate::utils::rtweekend::{AlgorithmOptions, IntersectionAlgorithm};
 use crate::{run, Cli};
 
 #[test]
@@ -240,7 +240,7 @@ fn test_dragon_4_grid_1() {
 
 #[allow(unused)]
 mod camera {
-    use crate::rtweekend::{AlgorithmOptions, Cli, IntersectionAlgorithm};
+    use crate::utils::rtweekend::{AlgorithmOptions, Cli, IntersectionAlgorithm};
     use crate::run;
 
     #[test]
