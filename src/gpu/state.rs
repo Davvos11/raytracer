@@ -269,4 +269,28 @@ impl GPUState {
         
         Ok(())
     }
+    
+    pub async fn generate(&self, camera: &Camera) {
+        let camera_params = [camera.image_width as f32, camera.image_height() as f32,
+            camera.center.x() as f32, camera.look_from.y() as f32, camera.look_from.z() as f32,
+            camera.pixel00_loc.x() as f32, camera.pixel00_loc.y() as f32, camera.pixel00_loc.z() as f32,
+            camera.pixel_delta_u.x() as f32, camera.pixel00_loc.y() as f32, camera.pixel00_loc.z() as f32,
+            camera.pixel_delta_v.x() as f32, camera.pixel_delta_v.y() as f32, camera.pixel00_loc.z() as f32
+        ];
+        let camera_buffer = self.device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&camera_params),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        
+        let ray_buffer_size = (camera.image_width * camera.image_height() * size_of::<[f32; 6]>() as u32) as u64;
+        let ray_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Ray buffer"),
+            size: ray_buffer_size,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false
+        });
+        
+        // todo: pipeline, then read the ray buffer
+    }
 }
