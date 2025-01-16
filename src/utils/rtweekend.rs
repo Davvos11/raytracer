@@ -27,6 +27,10 @@ pub struct Cli {
     /// Camera position (only for dragon scene)
     #[arg(long)]
     pub camera: Option<usize>,
+    /// Enable GPU path tracing (using the Wavefront algorithm)
+    /// Note: most options will not apply
+    #[arg(long, default_value_t = false)]
+    pub gpu: bool,
 }
 
 #[allow(unused)]
@@ -92,17 +96,25 @@ pub struct Options {
     pub draw_boxes: bool,
     pub grid_size: f64,
     pub camera: Option<usize>,
+    pub gpu: bool,
 }
 
 impl Display for Options {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut option_strs = self
-            .options
-            .iter()
-            .map(|x| format!("{x:?}"))
-            .collect::<Vec<_>>();
-        if self.algorithm == IntersectionAlgorithm::Grid {
-            option_strs.push(format!("size={}", self.grid_size));
+        let mut option_strs = Vec::new();
+        if !self.gpu {
+            option_strs.append(
+                &mut self
+                    .options
+                    .iter()
+                    .map(|x| format!("{x:?}"))
+                    .collect::<Vec<_>>(),
+            );
+            if self.algorithm == IntersectionAlgorithm::Grid {
+                option_strs.push(format!("size={}", self.grid_size));
+            }
+        } else {
+            option_strs.push("gpu".to_string());
         }
         if let Some(pos) = self.camera {
             option_strs.push(format!("pos{}", pos));
@@ -129,6 +141,7 @@ impl Options {
             options: args.options.clone(),
             grid_size: args.grid_size,
             camera: args.camera,
+            gpu: args.gpu,
         }
     }
 }
@@ -187,10 +200,14 @@ pub fn get_output_filename(
         } else {
             &format!("-{options_str}")
         };
-        let new_file_name = format!(
-            "output/{}-{algorithm}{options_str}.ppm",
-            stem.to_string_lossy()
-        );
+        let new_file_name = if options.gpu {
+            format!("output/{}{options_str}.png", stem.to_string_lossy())
+        } else {
+            format!(
+                "output/{}-{algorithm}{options_str}.ppm",
+                stem.to_string_lossy()
+            )
+        };
         return Some(new_file_name);
     }
     None

@@ -10,12 +10,14 @@ use std::fs::File;
 use std::rc::Rc;
 use std::time::Instant;
 use utils::scenes;
+use crate::gpu::state::GPUState;
 
 mod hittable;
 mod camera;
 mod acceleration;
 mod value;
 mod utils;
+mod gpu;
 #[cfg(test)]
 mod test;
 
@@ -25,10 +27,13 @@ fn main() {
     if let Some(error) = check_valid_options(&args.options) {
         panic!("{error}")
     }
-    run(args)
+    // Run async function using pollster
+    pollster::block_on(
+        run(args)
+    );
 }
 
-fn run(args: Cli) {
+async fn run(args: Cli) {
     let options = Options::new(&args);
 
     let (mut world, filename) = if let Some(filename) = args.filename {
@@ -71,7 +76,7 @@ fn run(args: Cli) {
 
     let mut cam = Camera::new();
     cam.aspect_ratio = 16.0 / 9.0;
-    cam.image_width = 900;
+    cam.image_width = 1024;
     cam.samples_per_pixel = 50;
     cam.max_depth = 50;
     cam.defocus_angle = 0.1;
@@ -122,15 +127,25 @@ fn run(args: Cli) {
         .expect("Could not open image file");
 
     let mut data: Data = Data::new(filename.to_string(), world.objects.len(), args.algorithm, options, cam.image_width, cam.image_height(), cam.samples_per_pixel, cam.max_depth);
-
     let start = Instant::now();
-    // Initialise structures like BVH
-    world.init();
-    data.set_init_time(start.elapsed().as_secs_f64());
 
-    // Render pixels
-    cam.render(&world, &mut file, &mut data)
-        .expect("Could not write to image file");
+    if args.gpu { 
+        // GPU rendering
+        let mut state = GPUState::new(&cam).await;
+        data.set_init_time(start.elapsed().as_secs_f64());
+        state.render(&mut file).await
+            .expect("Could not write to image file");
+    } else {
+        // CPU rendering
+        // Initialise structures like BVH
+        world.init();
+        data.set_init_time(start.elapsed().as_secs_f64());
+
+        // Render pixels
+        cam.render(&world, &mut file, &mut data)
+            .expect("Could not write to image file");
+    }
+    
     data.set_seconds(start.elapsed().as_secs_f64());
 
     data.print();
