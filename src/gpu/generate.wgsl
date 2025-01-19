@@ -4,7 +4,7 @@ struct CameraData {
     pixel00_loc: vec3<f32>,
     pixel_delta_u: vec3<f32>,
     pixel_delta_v: vec3<f32>,
-};
+}; // todo: apparently this needs padding? I don't really understand the 16 bit multiple requirement
 
 @group(0) @binding(0) var<uniform> cameraData: CameraData;
 
@@ -25,10 +25,18 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let index = y * cameraData.screenSize.x + x;
         
         let origin = cameraData.center;
-        let pixel_sample = cameraData.pixel00_loc + (x * cameraData.pixel_delta_u) + (y * cameraData.pixel_delta_v);
+        let pixel_sample = vec3_add(vec3_add(cameraData.pixel00_loc, (x * cameraData.pixel_delta_u)), (y * cameraData.pixel_delta_v));
         
-        let ray_direction = pixel_sample - origin;
+        let ray_direction = vec3_subtract(pixel_sample, origin);
         
         rayBuffer[index] = Ray(origin, ray_direction);
     }
+}
+
+fn vec3_add(a: vec3<f32>, b: vec3<f32>) -> vec3<f32> {
+    return vec3<f32>(a.x + b.x, a.y + b.y, a.z + b.z);
+}
+
+fn vec3_subtract(a: vec3<f32>, b: vec3<f32>) -> vec3<f32> {
+    return vec3<f32>(a.x - b.x, a.y - b.y, a.z - b.z);
 }
