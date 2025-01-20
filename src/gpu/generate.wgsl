@@ -12,6 +12,9 @@ struct CameraData {
 struct Ray {
     origin: vec3<f32>,
     direction: vec3<f32>,
+    t: f32,
+    primIdx: u32,
+    screenXy: vec2<u32>,
 };
 
 @group(0) @binding(1) var<storage, read_write> rayBuffer: array<Ray>;
@@ -29,7 +32,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         let ray_direction = vec3_subtract(pixel_sample, origin);
         
-        rayBuffer[index] = Ray(origin, ray_direction);
+        rayBuffer[index] = Ray(origin, ray_direction, 0.0, 0u, vec2(x, y));
     }
 }
 

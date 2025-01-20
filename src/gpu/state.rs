@@ -178,6 +178,11 @@ impl GPUState {
         ////////////////////////////////////////////////////////////////////////////
         let extend_shader = device.create_shader_module(include_wgsl!("extend.wgsl"));
 
+        ////////////////////////////////////////////////////////////////////////////
+        // Shade kernel
+        ////////////////////////////////////////////////////////////////////////////
+        let shade_shader = device.create_shader_module(include_wgsl!("shade.wgsl"));
+
         let buffers = Buffers {
             camera: camera_buffer,
             ray: ray_buffer,

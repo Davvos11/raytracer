@@ -5,23 +5,21 @@ struct TriangleData {
     tCentroid: vec3<f32> // centroid is a reserved keyword
 }
 
+@group(0) @binding(2) var<storage, read> triangleData: array<TriangleData>;
+
 struct SphereData {
     center: vec3<f32>,
     radius: f32
 }
+
+@group(0) @binding(3) var<storage, read> sphereData: array<SphereData>;
 
 struct ScreenData {
     x: f32,
     y: f32
 }
 
-struct Uniform {
-    triangles: array<TriangleData>,
-    spheres: array<SphereData>,
-    screenData: ScreenData
-}
-
-@group(0) @binding(0) var<uniform> uniformData: Uniform;
+@group(0) @binding(0) var<uniform> screenData: ScreenData;
 
 struct Interval {
     min: f32,
@@ -32,48 +30,46 @@ struct Ray {
     origin: vec3<f32>,
     direction: vec3<f32>,
     t: f32,
-    primIdx: f32
+    primIdx: u32,
+    screenXy: vec2<u32>
 }
 
 @group(0) @binding(1) var<storage, read_write> rayBuffer: array<Ray>;
 
-//@group(0) @binding(2) var<storage, read_write> hitRecordBuffer: array<HitRecord>;
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let x = global_id.x;
     let y = global_id.y;
         
-    if (x < u32(uniformData.screenData.x) && y < u32(uniformData.screenData.y)) {
-        let index = y * &uniformData.screenData.x + x;
+    if (x < u32(screenData.x) && y < u32(screenData.y)) {
+        let index = y * u32(screenData.x) + x;
         
         var ray_t = Interval(0.001, 10000000); // todo: find a way in wgsl to get max f32 value
-        let ray = rayBuffer[index];
+        var ray = rayBuffer[index];
         var hit_anything = false;
         
-        for (var i = 0u; i < arrayLength(&uniformData.triangles); i++) {
-            let currentTriangle = &uniformData.triangles[i];
-            if (hit_triangle(ray, currentTriangle, ray_t)) {
+        for (var i = 0u; i < arrayLength(&triangleData); i++) {
+            let currentTriangle = triangleData[i];
+            if (hit_triangle(ray, index, i, currentTriangle, ray_t)) {
                 hit_anything = true;
             }
+            ray = rayBuffer[index];
             ray_t = Interval(0.001, ray.t);
         }
 
-        for (var i = 0u; i < arrayLength(&uniformData.spheres); i++) {
-            let currentSphere = &uniformData.spheres[i];
-            if (hit_sphere(ray, currentSphere, ray_t)) {
+        for (var i = 0u; i < arrayLength(&sphereData); i++) {
+            let currentSphere = sphereData[i];
+            if (hit_sphere(ray, index, i, currentSphere, ray_t)) {
                 hit_anything = true;
             }
+            ray = rayBuffer[index];
             ray_t = Interval(0.001, ray.t);
-        }
-
-        if (hit_anything) {
-            rayBuffer[index] = ray;
         }
     }
 }
 
-fn hit_sphere(ray: Ray, sphere: SphereData, ray_t: Interval) -> bool {
+fn hit_sphere(ray: Ray, ray_index: u32, primId: u32, sphere: SphereData, ray_t: Interval) -> bool {
     let oc = vec3_subtract(sphere.center, ray.origin);
     let a = ray.direction.x * ray.direction.x + ray.direction.y * ray.direction.y + ray.direction.z * ray.direction.z;
     let h = ray.direction.x * oc.x + ray.direction.y * oc.y + ray.direction.z * oc.z;
@@ -98,10 +94,12 @@ fn hit_sphere(ray: Ray, sphere: SphereData, ray_t: Interval) -> bool {
     // todo: mats?
     // seems like wgsl supports pointers but it might be easier to just use return types
     
+    rayBuffer[ray_index] = Ray(ray.origin, ray.direction, hit_t, primId, ray.screenXy);
+    
     return true;
 }
 
-fn hit_triangle (r: Ray, ray_index: u32, t: TriangleData, ray_t: Interval) -> bool {
+fn hit_triangle (r: Ray, ray_index: u32, primId: u32, t: TriangleData, ray_t: Interval) -> bool {
     // Calculate the normal by the cross product of AB and AC
     let v0v1 = vec3_subtract(t.v1, t.v0); // AB
     let v0v2 = vec3_subtract(t.v2, t.v0); // AC
@@ -116,7 +114,7 @@ fn hit_triangle (r: Ray, ray_index: u32, t: TriangleData, ray_t: Interval) -> bo
     // Get the distance from the origin to the plane
     let d = -1 * vec3_dot(n, t.v0);
     // Get the distance along the ray
-    let hit_t = -1 * (vec3_divide(vec3_dot(n, vec3_add(r.origin, d)), n_dot_dir));
+    let hit_t = -1 * ((vec3_dot(n, r.origin) + d) / n_dot_dir);
     
     // The triangle is not visible if it is behind the camera
     if (hit_t < 0.0) {
@@ -147,6 +145,7 @@ fn hit_triangle (r: Ray, ray_index: u32, t: TriangleData, ray_t: Interval) -> bo
     //todo: mat
     
     // Hit! Replace the ray in the buffer
+    rayBuffer[ray_index] = Ray(r.origin, r.direction, hit_t, primId + arrayLength(&sphereData), r.screenXy);
     
     return true;
     
@@ -181,7 +180,7 @@ fn interval_surrounds(a: Interval, x: f32) -> bool {
 }
 
 fn ray_at(r: Ray, t: f32) -> vec3<f32> {
-    return vec3_add(r.origin, vec3_multiply(t, r.direction));
+    return vec3_add(r.origin, vec3_multiply(r.direction, t));
 }
 
 //fn hr_set_face_normal(h: HitRecord, r: Ray, outward_normal: vec3<f32>) {
