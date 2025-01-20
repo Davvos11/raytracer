@@ -271,7 +271,7 @@ impl GridBox {
     }
 
     /// Checks for all objects if they should be in the grid box
-    pub fn try_add_all(&mut self, objects: &Vec<Rc<dyn Hittable>>) {
+    pub fn try_add_all(&mut self, objects: &[Rc<dyn Hittable>]) {
         for (i, obj) in objects.iter().enumerate() {
             self.try_add(&obj.to_aabb(), i);
         }

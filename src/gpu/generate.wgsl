@@ -1,5 +1,5 @@
 struct CameraData {
-    screenSize: vec2<f32>,
+    screenSize: vec2<u32>,
     center: vec3<f32>,
     pixel00_loc: vec3<f32>,
     pixel_delta_u: vec3<f32>,
@@ -21,12 +21,12 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let x = global_id.x;
     let y = global_id.y;
     
-    if (x < u32(cameraData.screenSize.x) && y < u32(cameraData.screenSize.y)) {
+    if (x < cameraData.screenSize.x && y < cameraData.screenSize.y) {
         let index = y * cameraData.screenSize.x + x;
         
         let origin = cameraData.center;
-        let pixel_sample = vec3_add(vec3_add(cameraData.pixel00_loc, (x * cameraData.pixel_delta_u)), (y * cameraData.pixel_delta_v));
-        
+        let pixel_sample = vec3_add(vec3_add(cameraData.pixel00_loc, (f32(x) * cameraData.pixel_delta_u)), (f32(y) * cameraData.pixel_delta_v));
+
         let ray_direction = vec3_subtract(pixel_sample, origin);
         
         rayBuffer[index] = Ray(origin, ray_direction);

@@ -85,7 +85,7 @@ impl Camera {
         (self.image_width as f64 / self.aspect_ratio) as u32
     }
     
-    fn initialise(&mut self) {
+    pub fn initialise(&mut self) {
         // Image setup
         self.image_height = self.image_height();
         self.image_height = if self.image_height < 1 { 1 } else { self.image_height };
