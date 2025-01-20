@@ -131,10 +131,11 @@ async fn run(args: Cli) {
 
     if args.gpu { 
         // GPU rendering
-        let mut state = GPUState::new(&cam).await;
+        let mut state = GPUState::new(&mut cam).await;
         data.set_init_time(start.elapsed().as_secs_f64());
-        state.render(&mut file).await
-            .expect("Could not write to image file");
+        state.generate(true).await;
+        // state.render(&mut file).await
+        //     .expect("Could not write to image file");
     } else {
         // CPU rendering
         // Initialise structures like BVH

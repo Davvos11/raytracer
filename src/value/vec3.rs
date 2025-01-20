@@ -208,5 +208,17 @@ impl Div<f64> for Vec3 {
     }
 }
 
+impl From<Vec3> for [f64; 3] {
+    fn from(value: Vec3) -> Self {
+        value.e
+    }
+}
+
+impl From<Vec3> for [f32; 3] {
+    fn from(value: Vec3) -> Self {
+        [value.e[0] as f32, value.e[1] as f32, value.e[2] as f32]
+    }
+}
+
 // Just an alias, but useful for clarity
 pub type Point3 = Vec3;

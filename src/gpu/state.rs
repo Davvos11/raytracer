@@ -1,10 +1,10 @@
 use crate::camera::Camera;
-use crate::gpu::types::Vertex;
+use crate::gpu::types::CameraData;
+use image::ImageFormat;
 use std::io;
 use std::io::Write;
-use image::ImageFormat;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{include_wgsl, Backends, BlendState, Color, ColorTargetState, ColorWrites, CommandEncoderDescriptor, DeviceDescriptor, Face, Features, FragmentState, FrontFace, InstanceDescriptor, Limits, LoadOp, MemoryHints, MultisampleState, Operations, PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PrimitiveState, PrimitiveTopology, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, StoreOp, Texture, TextureView, VertexState};
+use wgpu::{include_wgsl, Backends, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, Color, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor, Features, InstanceDescriptor, Limits, LoadOp, MemoryHints, Operations, PipelineLayoutDescriptor, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, ShaderStages, StoreOp, Texture, TextureView};
 
 pub struct GPUState {
     device: wgpu::Device,
@@ -14,13 +14,28 @@ pub struct GPUState {
     texture_view: TextureView,
     texture_width: u32,
     texture_height: u32,
-    render_pipeline: RenderPipeline,
-    output_buffer: wgpu::Buffer,
-    vertex_buffer: wgpu::Buffer,
+    pipelines: Pipelines,
+    buffers: Buffers,
+    bind_group_layout: BindGroupLayout,
+}
+
+struct Buffers {
+    camera: wgpu::Buffer,
+    ray: wgpu::Buffer,
+    output: wgpu::Buffer,
+}
+
+struct Pipelines {
+    generate: ComputePipeline,
 }
 
 impl GPUState {
-    pub async fn new(cam: &Camera) -> Self {
+    pub async fn new(cam: &mut Camera) -> Self {
+        // Initialise camera
+        cam.initialise();
+        // Drop mutability of camera object
+        let cam = &*cam;
+        
         let instance = wgpu::Instance::new(InstanceDescriptor {
             backends: Backends::all(),
             ..Default::default()
@@ -93,75 +108,78 @@ impl GPUState {
         };
         let output_buffer = device.create_buffer(&output_buffer_desc);
 
-        // Load WGSL shaders
-        let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
+        ////////////////////////////////////////////////////////////////////////////
+        // Generate kernel
+        ////////////////////////////////////////////////////////////////////////////
+        // Load shader
+        let generate_shader = device.create_shader_module(include_wgsl!("generate.wgsl"));
 
-        // Create pipeline layout
-        let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: Some("Rener Pipeline layout"),
-            bind_group_layouts: &[],
+        let camera_params = [CameraData::from(cam)];
+        let camera_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&camera_params),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let ray_buffer_size =
+            (cam.image_width * cam.image_height() * size_of::<[f32; 6]>() as u32) as u64;
+        let ray_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Ray buffer"),
+            size: ray_buffer_size,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+
+        // Instantiate pipeline
+        let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: false},
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        });
+        let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            label: Some("GPU Pipeline Layout"),
+            bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
 
-        // Create pipeline
-        // TODO add world and camera position and stuff (tm)
-        let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            // We need no vertex shader (I think)
-            vertex: VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                // Vertex shader input
-                buffers: &[],
-                compilation_options: PipelineCompilationOptions::default(),
-            },
-            fragment: Some(FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                // Color outputs to set up (one for the surface)
-                targets: &[Some(ColorTargetState {
-                    format: texture_desc.format,
-                    blend: Some(BlendState::REPLACE),
-                    write_mask: ColorWrites::ALL,
-                })],
-                compilation_options: PipelineCompilationOptions::default(),
-            }),
-            primitive: PrimitiveState {
-                // Each vertex is a point
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                // Counter clockwise triangles
-                front_face: FrontFace::Ccw,
-                // Cull (= don't include) backsides of triangles
-                cull_mode: Some(Face::Back),
-                // These three options need features if you change them
-                polygon_mode: PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            // Depth buffer, will be used later
-            depth_stencil: None,
-            multisample: MultisampleState {
-                // Amount of samples for the pipeline
-                count: 1,
-                // Which samples should be active (!0 is all of them)
-                mask: !0,
-                // Used for antialiasing
-                alpha_to_coverage_enabled: false,
-            },
-            // Array layers for render attachments
-            multiview: None,
-            // Only really useful for Android
+        let generate_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
+            label: Some("Generate kernel"),
+            layout: Some(&layout),
+            module: &generate_shader,
+            entry_point: Some("main"),
+            compilation_options: Default::default(),
             cache: None,
         });
 
-        // Initialise vertex buffer
-        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Vertex Buffer (triangle)"),
-            contents: bytemuck::cast_slice(&[Vertex::default()]),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        let buffers = Buffers {
+            camera: camera_buffer,
+            ray: ray_buffer,
+            output: output_buffer,
+        };
+
+        let pipelines = Pipelines {
+            generate: generate_pipeline,
+        };
 
         Self {
             device,
@@ -171,13 +189,17 @@ impl GPUState {
             texture_view,
             texture_width,
             texture_height,
-            render_pipeline,
-            output_buffer,
-            vertex_buffer,
+            buffers,
+            pipelines,
+            bind_group_layout,
         }
     }
 
-    pub async fn render(&mut self, writer: &mut (impl Write + io::Seek)) -> Result<(), image::ImageError> {
+    pub async fn render(
+        &mut self,
+        writer: &mut (impl Write + io::Seek),
+    ) 
+        -> Result<(), image::ImageError> {
         // Create encoder for commands to ben sent to the GPU
         let mut encoder = self
             .device
@@ -203,7 +225,7 @@ impl GPUState {
             });
 
             // Set shader pipeline
-            render_pass.set_pipeline(&self.render_pipeline);
+            // render_pass.set_pipeline(&self.render_pipeline);
             // Draw (using single vertex)
             // render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.draw(0..3, 0..1);
@@ -220,7 +242,7 @@ impl GPUState {
                 origin: wgpu::Origin3d::ZERO,
             },
             wgpu::ImageCopyBuffer {
-                buffer: &self.output_buffer,
+                buffer: &self.buffers.output,
                 layout: wgpu::ImageDataLayout {
                     offset: 0,
                     bytes_per_row: Some(u32_size * self.texture_width),
@@ -232,10 +254,10 @@ impl GPUState {
 
         // Submit the command buffer
         self.queue.submit(std::iter::once(encoder.finish()));
-        
+
         {
             // Get the data out of the buffer
-            let buffer_slice = self.output_buffer.slice(..);
+            let buffer_slice = self.buffers.output.slice(..);
             let (tx, rx) = futures_intrusive::channel::shared::oneshot_channel();
             buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
                 tx.send(result).unwrap();
@@ -247,50 +269,81 @@ impl GPUState {
 
             use image::{ImageBuffer, Rgba};
             let buffer =
-                ImageBuffer::<Rgba<u8>, _>::from_raw(self.texture_width, self.texture_height, data).unwrap();
+                ImageBuffer::<Rgba<u8>, _>::from_raw(self.texture_width, self.texture_height, data)
+                    .unwrap();
             buffer.write_to(writer, ImageFormat::Png)?;
-
-            // // Write to ppm file
-            // let header = format!("P3\n{} {}\n255\n", self.texture_width, self.texture_height);
-            // writer.write_all(header.as_bytes())?;
-            // 
-            // for pixel in data.windows(4) {
-            //     if let &[r, g, b, _] = pixel {
-            //         let data = format!("{r} {g} {b}\n");
-            //         writer.write_all(data.as_bytes())?;
-            //     } else {
-            //         panic!("Expected 4 bytes per pixel in output buffer");
-            //     }
-            // }
         }
-        
+
         // Unmap the output buffer
-        self.output_buffer.unmap();
-        
+        self.buffers.output.unmap();
+
         Ok(())
     }
-    
-    pub async fn generate(&self, camera: &Camera) {
-        let camera_params = [camera.image_width as f32, camera.image_height() as f32,
-            camera.center.x() as f32, camera.look_from.y() as f32, camera.look_from.z() as f32,
-            camera.pixel00_loc.x() as f32, camera.pixel00_loc.y() as f32, camera.pixel00_loc.z() as f32,
-            camera.pixel_delta_u.x() as f32, camera.pixel00_loc.y() as f32, camera.pixel00_loc.z() as f32,
-            camera.pixel_delta_v.x() as f32, camera.pixel_delta_v.y() as f32, camera.pixel00_loc.z() as f32
-        ];
-        let camera_buffer = self.device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&camera_params),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+
+    pub async fn print_output_buffer(&self) {
+        // Get the data out of the buffer
+        let buffer_slice = self.buffers.output.slice(..);
+        let (tx, rx) = futures_intrusive::channel::shared::oneshot_channel();
+        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+            tx.send(result).unwrap();
         });
-        
-        let ray_buffer_size = (camera.image_width * camera.image_height() * size_of::<[f32; 6]>() as u32) as u64;
-        let ray_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Ray buffer"),
-            size: ray_buffer_size,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            mapped_at_creation: false
+        self.device.poll(wgpu::Maintain::Wait).panic_on_timeout();
+        rx.receive().await.unwrap().unwrap();
+
+        let data = buffer_slice.get_mapped_range();
+        let result: &[f32] = bytemuck::cast_slice(&data);
+        dbg!(&result[0..100]);
+    }
+
+    pub async fn generate(&self, debug: bool) {
+        // Instantiate bind groups
+        let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
+            label: None,
+            layout: &self.bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: self.buffers.camera.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: self.buffers.ray.as_entire_binding(),
+                },
+            ],
         });
-        
-        // todo: pipeline, then read the ray buffer
+
+        let mut encoder = self
+            .device
+            .create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("Generate encoder"),
+            });
+
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: Some("Generate pass"),
+                timestamp_writes: None,
+            });
+            compute_pass.set_pipeline(&self.pipelines.generate);
+            compute_pass.set_bind_group(0, &bind_group, &[]);
+            compute_pass.insert_debug_marker("Generate kernel");
+            compute_pass.dispatch_workgroups(self.texture_width, self.texture_height, 1);
+        }
+
+        if debug {
+            // Copy ray buffer to output (CPU) buffer
+            encoder.copy_buffer_to_buffer(
+                &self.buffers.ray,
+                0,
+                &self.buffers.output,
+                0,
+                self.buffers.output.size(),
+            );
+        }
+
+        self.queue.submit(Some(encoder.finish()));
+
+        if debug {
+            self.print_output_buffer().await;
+        }
     }
 }
