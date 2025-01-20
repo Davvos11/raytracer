@@ -107,30 +107,9 @@ impl GPUState {
             mapped_at_creation: false,
         };
         let output_buffer = device.create_buffer(&output_buffer_desc);
-
-        ////////////////////////////////////////////////////////////////////////////
-        // Generate kernel
-        ////////////////////////////////////////////////////////////////////////////
-        // Load shader
-        let generate_shader = device.create_shader_module(include_wgsl!("generate.wgsl"));
-
-        let camera_params = [CameraData::from(cam)];
-        let camera_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&camera_params),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let ray_buffer_size =
-            (cam.image_width * cam.image_height() * size_of::<[f32; 6]>() as u32) as u64;
-        let ray_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Ray buffer"),
-            size: ray_buffer_size,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            mapped_at_creation: false,
-        });
-
-        // Instantiate pipeline
+        
+        // Setup layout
+        // We set this up globally so that all compute shaders can use the same buffers
         let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,
             entries: &[
@@ -162,6 +141,29 @@ impl GPUState {
             push_constant_ranges: &[],
         });
 
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Generate kernel
+        ////////////////////////////////////////////////////////////////////////////
+        let generate_shader = device.create_shader_module(include_wgsl!("generate.wgsl"));
+
+        let camera_params = [CameraData::from(cam)];
+        let camera_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&camera_params),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let ray_buffer_size =
+            (cam.image_width * cam.image_height() * size_of::<[f32; 6]>() as u32) as u64;
+        let ray_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Ray buffer"),
+            size: ray_buffer_size,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+
+        // Set up pipeline
         let generate_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
             label: Some("Generate kernel"),
             layout: Some(&layout),
@@ -170,6 +172,11 @@ impl GPUState {
             compilation_options: Default::default(),
             cache: None,
         });
+        
+        ////////////////////////////////////////////////////////////////////////////
+        // Extend kernel
+        ////////////////////////////////////////////////////////////////////////////
+        let extend_shader = device.create_shader_module(include_wgsl!("extend.wgsl"));
 
         let buffers = Buffers {
             camera: camera_buffer,
