@@ -31,7 +31,9 @@ struct Ray {
     direction: vec3<f32>,
     t: f32,
     primIdx: u32,
-    screenXy: vec2<u32>
+    screenXy: vec2<u32>,
+    accumulator: vec3<f32>,
+    depth: u32
 }
 
 struct Interval {
@@ -49,19 +51,28 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     
     if (index < arrayLength(&shadowRayBuffer)) {
         let shadowRay = shadowRayBuffer[index];
+        var hit_anything = false;
         
         for (var i = 0u; i < arrayLength(&sphereData); i++) {
             // sphere
             let currentSphere = sphereData[i];
             if (hit_sphere(shadowRay, currentSphere, Interval(0.001, 100000000))) {
-                // color
+                hit_anything = true;
             }
         }
         for (var i = 0u; i < arrayLength(&triangleData); i++) {
             // triangle
             let currentTriangle = triangleData[i];
             if (hit_triangle(shadowRay, currentTriangle, Interval(0.001, 100000000))) {
-               // color
+               hit_anything = true;
+            }
+        }
+
+        if (!hit_anything) {
+            if (shadowRay.primIdx < arrayLength(&sphereData)) {
+                let currentSphere = sphereData[shadowRay.primIdx];
+                let index = shadowRay.screenXy.y * screenData.x + shadowRay.screenXy.x;
+                pixelBuffer[index] = currentSphere.color;
             }
         }
     }

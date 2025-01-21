@@ -20,6 +20,7 @@ pub trait Material {
     
     fn albedo(&self) -> Color;
     fn fuzz(&self) -> f64;
+    fn refraction_index(&self) -> f64;
 }
 
 #[derive(Serialize, Deserialize)]
@@ -56,6 +57,9 @@ impl Material for Lambertian {
 
     fn albedo(&self) -> Color { self.albedo }
     fn fuzz(&self) -> f64 { f64::default() }
+    fn refraction_index(&self) -> f64 {
+        f64::default()
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -89,6 +93,9 @@ impl Material for Metal {
 
     fn albedo(&self) -> Color { self.albedo }
     fn fuzz(&self) -> f64 { self.fuzz }
+    fn refraction_index(&self) -> f64 {
+        f64::default()
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -131,6 +138,9 @@ impl Material for Dielectric {
 
     fn albedo(&self) -> Color { Color::default() }
     fn fuzz(&self) -> f64 { f64::default() }
+    fn refraction_index(&self) -> f64 {
+        self.refraction_index
+    }
 }
 
 fn reflectance(cosine: f64, refraction_index: f64) -> f64 {

@@ -1,10 +1,11 @@
 struct TriangleData {
     v0: vec3<f32>,
     v1: vec3<f32>,
+    refraction_index: f32,
     v2: vec3<f32>,
     material: u32,
     color: vec3<f32>,
-    fuzz: f32
+    fuzz: f32,
 }
 
 @group(0) @binding(2) var<storage, read> triangleData: array<TriangleData>;
@@ -14,7 +15,8 @@ struct SphereData {
     radius: f32,
     color: vec3<f32>,
     material: u32,
-    fuzz: f32
+    fuzz: f32,
+    refraction_index: f32
 }
 
 @group(0) @binding(3) var<storage, read> sphereData: array<SphereData>;
@@ -31,21 +33,16 @@ struct Ray {
     direction: vec3<f32>,
     t: f32,
     primIdx: u32,
-    screenXy: vec2<u32>
+    screenXy: vec2<u32>,
+    accumulator: vec3<f32>,
+    depth: u32
 }
 
 @group(0) @binding(1) var<storage, read_write> rayBuffer: array<Ray>;
-@group(0) @binding(4) var<storage, read_write> shadowRayBuffer: array<Ray>;
-@group(0) @binding(5) var<storage, read_write> reflectionRayBuffer: array<Ray>;
 
 @group(0) @binding(6) var<storage, read> randomUnit: array<vec3<f32>>;
 
 @group(0) @binding(99) var<storage, read_write> debugData: array<Ray>;
-
-@group(0) @binding(7) var<storage, read_write> pixelBuffer: array<vec3<f32>>;
-
-var<workgroup> shadowRayIdx: atomic<u32>;
-var<workgroup> extensionRayIdx: atomic<u32>;
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -57,6 +54,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let ray = rayBuffer[index];
         
         if (ray.t <= 0.0) {
+            rayBuffer[index] = Ray(ray.origin, ray.direction, ray.t, ray.primIdx, ray.screenXy, ray.accumulator, 0u);
             return;
         }
 
@@ -74,15 +72,25 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 normal = vec3_multiply(normal, -1.0);
             }
             
-            if (true) { // todo: shadow or reflection
-                // lambertian - shadow ray
-                let shadowIndex = atomicAdd(&shadowRayIdx, 1u);
-                shadowRayBuffer[shadowIndex] = shadow_ray(normal, random_unit, intersectionPoint, ray.screenXy);
-            } else {
-                // metal - reflection ray
-                let extensionIndex = atomicAdd(&extensionRayIdx, 1u);
-                reflectionRayBuffer[extensionIndex] = reflect_ray(ray, intersectionPoint, random_unit, normal);
+            switch (currentSphere.material) {
+                case 0u: { // lambertian
+                    rayBuffer[index] = lambertian_ray(normal, random_unit, intersectionPoint, ray);
+                }
+                case 1u: { // metal
+                    rayBuffer[index] = metal_ray(ray, intersectionPoint, normal, random_unit);
+                    return;
+                }
+                case 2u: { // dielectric
+                    // dielectric ray
+                    return;
+                }
+                
+                default: {
+                    rayBuffer[index] = Ray(ray.origin, ray.direction, ray.t, ray.primIdx, ray.screenXy, ray.accumulator, 0u);
+                    return;
+                }
             }
+            
         } else {
             let currentTriangle = triangleData[primIdx - sphereLength];
             
@@ -96,29 +104,39 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 normal = vec3_multiply(normal, -1.0);
             }
 
-            if (true) { // todo: shadow or reflection
-                // lambertian - shadow ray
-                let shadowIndex = atomicAdd(&shadowRayIdx, 1u);
-                shadowRayBuffer[shadowIndex] = shadow_ray(normal, random_unit, intersectionPoint, ray.screenXy);
-            } else {
-                // metal - reflection ray
-                let extensionIndex = atomicAdd(&extensionRayIdx, 1u);
-                reflectionRayBuffer[extensionIndex] = reflect_ray(ray, intersectionPoint, random_unit, normal);
+            switch (currentTriangle.material) {
+                case 0u: { // lambertian
+                    rayBuffer[index] = lambertian_ray(normal, random_unit, intersectionPoint, ray);
+                    return;
+                }
+                case 1u: { // metal
+                    rayBuffer[index] = metal_ray(ray, intersectionPoint, normal, random_unit);
+                    return;
+                }
+                case 2u: { // dielectric
+                    // dielectric ray
+                    return;
+                }
+                
+                default: {
+                    rayBuffer[index] = Ray(ray.origin, ray.direction, ray.t, ray.primIdx, ray.screenXy, ray.accumulator, 0u);
+                    return;
+                }
             }
         }
     }
 }
 
-fn shadow_ray(normal: vec3<f32>, random_unit: vec3<f32>, p: vec3<f32>, screenXy: vec2<u32>) -> Ray {
+fn lambertian_ray(normal: vec3<f32>, random_unit: vec3<f32>, p: vec3<f32>, ray: Ray) -> Ray {
     let scatter_direction = vec3_add(normal, random_unit);
-    return Ray(p, scatter_direction, 0.0, 0u, screenXy);
+    return Ray(p, scatter_direction, 0.0, ray.primIdx, ray.screenXy, ray.accumulator, ray.depth - 1u);
 }
 
-fn reflect_ray(ray: Ray, p: vec3<f32>, random_unit: vec3<f32>, normal: vec3<f32>) -> Ray {
+fn metal_ray(ray: Ray, p: vec3<f32>, random_unit: vec3<f32>, normal: vec3<f32>) -> Ray {
     var reflected = vec3_reflect(ray.direction, normal);
     reflected = vec3_add(vec3_unit(reflected), random_unit);
     
-    return Ray(p, reflected, 0.0, 0u, ray.screenXy);
+    return Ray(p, reflected, 0.0, ray.primIdx, ray.screenXy, ray.accumulator, ray.depth - 1u);
 }
 
 fn vec3_add(a: vec3<f32>, b: vec3<f32>) -> vec3<f32> {

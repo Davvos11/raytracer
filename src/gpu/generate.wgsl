@@ -7,6 +7,7 @@ struct CameraData {
 };
 
 @group(0) @binding(0) var<uniform> cameraData: CameraData;
+@group(0) @binding(98) var<uniform> maxDepth: u32;
 
 // output
 struct Ray {
@@ -15,6 +16,8 @@ struct Ray {
     t: f32,
     primIdx: u32,
     screenXy: vec2<u32>,
+    accumulator: vec3<f32>,
+    depth: u32
 };
 
 @group(0) @binding(1) var<storage, read_write> rayBuffer: array<Ray>;
@@ -36,7 +39,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         let ray_direction = vec3_subtract(pixel_sample, origin);
         
-        rayBuffer[index] = Ray(origin, ray_direction, 0.0, 0u, vec2(x, y));
+        rayBuffer[index] = Ray(origin, ray_direction, 0.0, 0u, vec2(x, y), vec3(1.0, 1.0, 1.0), maxDepth);
     }
 }
 

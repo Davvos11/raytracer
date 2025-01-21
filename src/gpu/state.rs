@@ -27,6 +27,7 @@ struct Buffers {
     output: wgpu::Buffer,
     debug: wgpu::Buffer,
     camera: wgpu::Buffer,
+    max_depth: wgpu::Buffer,
     ray: wgpu::Buffer,
     triangle: wgpu::Buffer,
     sphere: wgpu::Buffer,
@@ -40,7 +41,6 @@ struct Pipelines {
     generate: ComputePipeline,
     extend: ComputePipeline,
     shade: ComputePipeline,
-    connect: ComputePipeline,
 }
 
 impl GPUState {
@@ -225,6 +225,17 @@ impl GPUState {
                     count: None,
                 },
                 BindGroupLayoutEntry {
+                    // Max depth data
+                    binding: 98,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
                     // Debug data
                     binding: 99,
                     visibility: ShaderStages::COMPUTE,
@@ -255,8 +266,15 @@ impl GPUState {
             contents: bytemuck::cast_slice(&camera_data),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
+        
+        let max_depth = [10u32];
+        let max_depth_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Max Depth Buffer"),
+            contents: bytemuck::cast_slice(&max_depth),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST
+        });
 
-        let ray_item_size = (size_of::<f32>() * 7 + size_of::<u32>() * 3) as u32;
+        let ray_item_size = (size_of::<f32>() * 10 + size_of::<u32>() * 1) as u32;
         let ray_buffer_size =
             (texture_width * texture_height * ray_item_size) as u64;
         let ray_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -361,7 +379,7 @@ impl GPUState {
         ////////////////////////////////////////////////////////////////////////////
         // Connect kernel
         ////////////////////////////////////////////////////////////////////////////
-        let connect_shader = device.create_shader_module(include_wgsl!("connect.wgsl"));
+        //let connect_shader = device.create_shader_module(include_wgsl!("connect.wgsl"));
 
         let pixel_buffer_size =
             (texture_width * texture_height * vector_size) as u64;
@@ -373,14 +391,14 @@ impl GPUState {
         });
 
         // Set up pipeline
-        let connect_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
+        /*let connect_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
             label: Some("Connect kernel"),
             layout: Some(&layout),
             module: &connect_shader,
             entry_point: Some("main"),
             compilation_options: Default::default(),
             cache: None,
-        });
+        });*/
 
 
         ////////////////////////////////////////////////////////////////////////////
@@ -389,6 +407,7 @@ impl GPUState {
             output: output_buffer,
             debug: debug_buffer,
             camera: camera_buffer,
+            max_depth: max_depth_buffer,
             ray: ray_buffer,
             triangle: triangle_buffer,
             sphere: sphere_buffer,
@@ -402,7 +421,6 @@ impl GPUState {
             generate: generate_pipeline,
             extend: extend_pipeline,
             shade: shade_pipeline,
-            connect: connect_pipeline,
         };
 
         // Instantiate bind groups
@@ -441,6 +459,10 @@ impl GPUState {
                 BindGroupEntry {
                     binding: 7,
                     resource: buffers.pixel.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 98,
+                    resource: buffers.max_depth.as_entire_binding()
                 },
                 BindGroupEntry {
                     binding: 99,
@@ -615,12 +637,12 @@ impl GPUState {
         let generate_debug = self.generate::<f32>(debug).await;
         let extend_debug = self.extend::<u32>(debug).await;
         let shade_debug = self.shade::<f32>(debug).await;
-        let connect_debug = self.connect::<f32>(debug).await;
+        //let connect_debug = self.connect::<f32>(debug).await;
         if debug {
             let generate_debug = generate_debug.unwrap();
             let extend_debug = extend_debug.unwrap();
             let shade_debug = shade_debug.unwrap();
-            let connect_debug = connect_debug.unwrap();
+            //let connect_debug = connect_debug.unwrap();
             
             println!("Generate:    {:?}", &generate_debug[0..20]);
             
@@ -634,10 +656,10 @@ impl GPUState {
             println!("Shade != 0:  {:?}", shade_nonzero.iter().take(20).collect::<Vec<_>>());
             println!("Shade != 0:  {}", shade_nonzero.len());
             
-            println!("Connect:     {:?}", &connect_debug[0..20]);
-            let connect_nonzero = get_non_zero(&connect_debug);
-            println!("Connect != 0:{:?}", connect_nonzero.iter().take(20).collect::<Vec<_>>());
-            println!("Connect != 0:{}", connect_nonzero.len());
+            //println!("Connect:     {:?}", &connect_debug[0..20]);
+            //let connect_nonzero = get_non_zero(&connect_debug);
+            //println!("Connect != 0:{:?}", connect_nonzero.iter().take(20).collect::<Vec<_>>());
+            //println!("Connect != 0:{}", connect_nonzero.len());
         }
         
         Ok(())
@@ -669,7 +691,7 @@ impl GPUState {
         self.run_pipeline(&self.pipelines.shade, "Shade", debug).await
     }
 
-    async fn connect<T: bytemuck::Pod>(&self, debug: bool) -> Option<Vec<T>> {
+    /*async fn connect<T: bytemuck::Pod>(&self, debug: bool) -> Option<Vec<T>> {
         self.run_pipeline(&self.pipelines.connect, "Connect", debug).await
-    }
+    }*/
 }

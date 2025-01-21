@@ -43,11 +43,11 @@ pub struct TriangleData {
     v0: [f32; 3],
     _0: [u32; 1], // Padding
     v1: [f32; 3],
-    _1: [u32; 1], // Padding
+    refraction_index: f32,
     v2: [f32; 3],
     material: u32,
     color: [f32; 3],
-    fuzz: f32
+    fuzz: f32,
 }
 
 
@@ -56,23 +56,27 @@ impl From<&Triangle> for TriangleData {
         let color: [f32; 3];
         let material: u32;
         let fuzz: f32;
+        let refraction_index;
 
         if let Some(material_type) = value.material_type() {
             match (material_type) {
                 MaterialType::Lambertian => {
                     color = value.mat().albedo().into();
-                    material = 1;
+                    material = 0;
                     fuzz = 0.0;
+                    refraction_index = f32::default();
                 }
                 MaterialType::Metal => {
                     color = value.mat().albedo().into();
-                    material = 2;
+                    material = 1;
                     fuzz = value.mat().fuzz() as f32;
+                    refraction_index = f32::default();
                 }
                 MaterialType::Dielectric => {
                     color = color::Color::default().into();
-                    material = 3;
-                    fuzz = f32::default()
+                    material = 2;
+                    fuzz = f32::default();
+                    refraction_index = value.mat().refraction_index() as f32;
                 }
             }
             
@@ -83,6 +87,7 @@ impl From<&Triangle> for TriangleData {
                 color,
                 material,
                 fuzz,
+                refraction_index,
                 ..Default::default()
             }
         }
@@ -103,7 +108,8 @@ pub struct SphereData {
     radius: f32,
     color: [f32; 3],
     material: u32,
-    fuzz: f32
+    fuzz: f32,
+    refraction_index: f32
 }
 
 impl From<&Sphere> for SphereData {
@@ -112,23 +118,27 @@ impl From<&Sphere> for SphereData {
         let color: [f32; 3];
         let material: u32;
         let fuzz: f32;
+        let refraction_index: f32;
         
         if let Some(material_type) = value.material_type() {
             match (material_type) {
                 MaterialType::Lambertian => {
                     color = value.mat().albedo().into();
-                    material = 1;
+                    material = 0;
                     fuzz = f32::default();
+                    refraction_index = f32::default();
                 }
                 MaterialType::Metal => {
                     color = value.mat().albedo().into();
-                    material = 2;
+                    material = 1;
                     fuzz = value.mat().fuzz() as f32;
+                    refraction_index = f32::default();
                 }
                 MaterialType::Dielectric => {
                     color = color::Color::default().into();
-                    material = 3;
-                    fuzz = f32::default()
+                    material = 2;
+                    fuzz = f32::default();
+                    refraction_index = f32::default();
                 }
             }
             
@@ -138,7 +148,8 @@ impl From<&Sphere> for SphereData {
                 radius: value.radius() as f32,
                 color,
                 material,
-                fuzz
+                fuzz,
+                refraction_index
             }
         }
 

@@ -1,6 +1,7 @@
 struct TriangleData {
     v0: vec3<f32>,
     v1: vec3<f32>,
+    refraction_index: f32,
     v2: vec3<f32>,
     material: u32,
     color: vec3<f32>,
@@ -17,6 +18,7 @@ struct SphereData {
     color: vec3<f32>,
     material: u32,
     fuzz: f32,
+    refraction_index: f32
 }
 
 @group(0) @binding(3) var<storage, read> sphereData: array<SphereData>;
@@ -41,7 +43,9 @@ struct Ray {
     direction: vec3<f32>,
     t: f32,
     primIdx: u32,
-    screenXy: vec2<u32>
+    screenXy: vec2<u32>,
+    accumulator: vec3<f32>,
+    depth: u32
 }
 
 @group(0) @binding(1) var<storage, read_write> rayBuffer: array<Ray>;
@@ -57,6 +61,11 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         var ray_t = Interval(0.001, 10000000); // todo: find a way in wgsl to get max f32 value (0x1.fffffcp-127f ??)
         var ray = rayBuffer[index];
+        
+        if (ray.depth == 0u) {
+            return;
+        }
+        
         var hit_anything = false;
         
         for (var i = 0u; i < arrayLength(&triangleData); i++) {
@@ -75,6 +84,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 ray = rayBuffer[index];
                 ray_t = Interval(0.001, ray.t);
             }
+        }
+        
+        if (!hit_anything) {
+            rayBuffer[index] = Ray(ray.origin, ray.direction, ray.t, ray.primIdx, ray.screenXy, ray.accumulator, 0u);
         }
     }
 }
@@ -105,7 +118,7 @@ fn hit_sphere(ray: Ray, ray_index: u32, primId: u32, sphere: SphereData, ray_t: 
     // todo: mats?
     // seems like wgsl supports pointers but it might be easier to just use return types
     
-    rayBuffer[ray_index] = Ray(ray.origin, ray.direction, hit_t, primId, ray.screenXy);
+    rayBuffer[ray_index] = Ray(ray.origin, ray.direction, hit_t, primId, ray.screenXy, ray.accumulator, ray.depth);
 
 
     return true;
@@ -157,7 +170,7 @@ fn hit_triangle (r: Ray, ray_index: u32, primId: u32, t: TriangleData, ray_t: In
     //todo: mat
     
     // Hit! Replace the ray in the buffer
-    rayBuffer[ray_index] = Ray(r.origin, r.direction, hit_t, primId + arrayLength(&sphereData), r.screenXy);
+    rayBuffer[ray_index] = Ray(r.origin, r.direction, hit_t, primId + arrayLength(&sphereData), r.screenXy, r.accumulator, r.depth);
     
     return true;
     
@@ -181,6 +194,10 @@ fn vec3_dot(a: vec3<f32>, b: vec3<f32>) -> f32 {
 
 fn vec3_multiply(a: vec3<f32>, b: f32) -> vec3<f32> {
     return vec3(a.x * b, a.y * b, a.z * b);
+}
+
+fn vec3_multiply_vec3(a: vec3<f32>, b: vec3<f32>) -> vec3<f32> {
+    return vec3(a.x * b.x, a.y * b.y, a.z * b.z);
 }
 
 fn vec3_divide(a: vec3<f32>, b: f32) -> vec3<f32> {
