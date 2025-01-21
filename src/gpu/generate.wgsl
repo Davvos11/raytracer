@@ -4,7 +4,7 @@ struct CameraData {
     pixel00_loc: vec3<f32>,
     pixel_delta_u: vec3<f32>,
     pixel_delta_v: vec3<f32>,
-}; // todo: apparently this needs padding? I don't really understand the 16 bit multiple requirement
+};
 
 @group(0) @binding(0) var<uniform> cameraData: CameraData;
 
@@ -18,6 +18,8 @@ struct Ray {
 };
 
 @group(0) @binding(1) var<storage, read_write> rayBuffer: array<Ray>;
+
+@group(0) @binding(99) var<storage, read_write> debugData: array<vec3<f32>>;
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {

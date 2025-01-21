@@ -12,6 +12,7 @@ use value::color::Color;
 use value::data::Data;
 use value::material::{Lambertian, MaterialType};
 use value::vec3::{Point3, Vec3};
+use crate::utils::get_non_zero;
 
 mod hittable;
 mod camera;
@@ -135,11 +136,14 @@ async fn run(args: Cli) {
         let state = GPUState::new(&mut cam, &world).await;
         data.set_init_time(start.elapsed().as_secs_f64());
         let debug = true;
-        let generate_debug = state.generate(debug).await;
-        let extend_debug = state.extend(debug).await;
+        let generate_debug = state.generate::<f32>(debug).await;
+        let extend_debug = state.extend::<u32>(debug).await;
         if debug {
-            println!("Generate: {:?}", &generate_debug.unwrap()[0..20]);
-            println!("Extend:   {:?}", &extend_debug.unwrap()[0..20]);
+            let generate_debug = generate_debug.unwrap();
+            let extend_debug = extend_debug.unwrap();
+            println!("Generate:    {:?}", &generate_debug[0..20]);
+            println!("Extend:      {:?}", &extend_debug[0..20]);
+            println!("Extend != 0: {:?}", &get_non_zero(&extend_debug, Some(20)));
         }
         // state.render(&mut file).await
         //     .expect("Could not write to image file");

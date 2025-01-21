@@ -14,10 +14,10 @@ struct SphereData {
 }
 
 @group(0) @binding(3) var<storage, read> sphereData: array<SphereData>;
-@group(0) @binding(99) var<storage, read_write> debugData: array<SphereData>;
+@group(0) @binding(99) var<storage, read_write> debugData: array<u32>;
 
-// I think this will work, because binding 0 is used for cameraData,
-//  which also starts with two u32s for x and y
+// Binding 0 is also used for camera data in generate.wgsl
+// This works because both structs start with the screen size as two u32 values
 struct ScreenData {
     x: u32,
     y: u32,
@@ -45,18 +45,19 @@ struct Ray {
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let x = global_id.x;
     let y = global_id.y;
-        
+
     if (x < screenData.x && y < screenData.y) {
         let index = y * screenData.x + x;
-        
+
         var ray_t = Interval(0.001, 10000000); // todo: find a way in wgsl to get max f32 value (0x1.fffffcp-127f ??)
         var ray = rayBuffer[index];
         var hit_anything = false;
-        
+
         for (var i = 0u; i < arrayLength(&triangleData); i++) {
             let currentTriangle = triangleData[i];
             if (hit_triangle(ray, index, i, currentTriangle, ray_t)) {
                 hit_anything = true;
+                debugData[index] = i + 1;
             }
             ray = rayBuffer[index];
             ray_t = Interval(0.001, ray.t);
@@ -64,7 +65,6 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         for (var i = 0u; i < arrayLength(&sphereData); i++) {
             let currentSphere = sphereData[i];
-            debugData[i] = currentSphere;
             if (hit_sphere(ray, index, i, currentSphere, ray_t)) {
                 hit_anything = true;
             }
@@ -79,6 +79,21 @@ fn hit_sphere(ray: Ray, ray_index: u32, primId: u32, sphere: SphereData, ray_t: 
     let a = ray.direction.x * ray.direction.x + ray.direction.y * ray.direction.y + ray.direction.z * ray.direction.z;
     let h = ray.direction.x * oc.x + ray.direction.y * oc.y + ray.direction.z * oc.z;
     let c = (oc.x * oc.x + oc.y * oc.y + oc.z * oc.z) - sphere.radius * sphere.radius;
+    
+//    if ray_index == 131129 && primId == 2 {
+//        debugData[0] = sphere.center[0];
+//        debugData[1] = sphere.center[1];
+//        debugData[2] = sphere.center[2];
+//        debugData[3] = ray.origin[0];
+//        debugData[4] = ray.origin[1];
+//        debugData[5] = ray.origin[2];
+////        debugData[0] = oc.x;
+////        debugData[1] = oc.y;
+////        debugData[2] = oc.z;
+////        debugData[3] = a;
+////        debugData[4] = h;
+////        debugData[5] = c;
+//    }
     
     let discriminant = h * h - a * c;
     if discriminant < 0.0 {
@@ -100,7 +115,8 @@ fn hit_sphere(ray: Ray, ray_index: u32, primId: u32, sphere: SphereData, ray_t: 
     // seems like wgsl supports pointers but it might be easier to just use return types
     
     rayBuffer[ray_index] = Ray(ray.origin, ray.direction, hit_t, primId, ray.screenXy);
-    
+
+
     return true;
 }
 

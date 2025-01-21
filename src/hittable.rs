@@ -20,6 +20,7 @@ pub struct HitRecord {
     pub t: f64,
     pub front_face: bool,
     pub hits_aabb_edge: bool,
+    pub debug: bool
 }
 
 impl HitRecord {
