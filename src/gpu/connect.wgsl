@@ -2,7 +2,6 @@ struct TriangleData {
     v0: vec3<f32>,
     v1: vec3<f32>,
     v2: vec3<f32>,
-    tCentroid: vec3<f32> // centroid is a reserved keyword
 }
 
 @group(0) @binding(2) var<storage, read> triangleData: array<TriangleData>;
@@ -15,8 +14,8 @@ struct SphereData {
 @group(0) @binding(3) var<storage, read> sphereData: array<SphereData>;
 
 struct ScreenData {
-    x: f32,
-    y: f32
+    x: u32,
+    y: u32
 }
 
 @group(0) @binding(0) var<uniform> screenData: ScreenData;
