@@ -69,7 +69,7 @@ impl Camera {
                 for _ in 0..self.samples_per_pixel {
                     data.add_primary_ray();
                     let r = self.get_ray(i, j);
-                    pixel_color += ray_color(&r, self.max_depth, world, data, Some((i, j)));
+                    pixel_color += ray_color(&r, self.max_depth, world, data);
                 }
 
                 let pixel = color_to_string(&(self.pixel_samples_scale * pixel_color));
@@ -139,10 +139,6 @@ impl Camera {
             if self.defocus_angle <= 0.0 { self.center } else { self.defocus_disk_sample() };
         let ray_direction = pixel_sample - ray_origin;
         
-        if i == 57 && j ==128 {
-            println!("{ray_origin:.6?} {pixel_sample:.6?} {ray_direction:.6?}")
-        }
-
         Ray::new(ray_origin, ray_direction)
     }
 
@@ -154,7 +150,7 @@ impl Camera {
 
 
 /// Determine the ray colour for the ray tracing algorithm
-fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data, option: Option<(u32, u32)>) -> Color {
+fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data) -> Color {
     // Stop gathering light if the ray bounce limit is exceeded
     if depth == 0 {
         return Color::default();
@@ -162,10 +158,6 @@ fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data, option:
 
     let mut rec = HitRecord::default();
     
-    if let Some((57, 128)) = option {
-        rec.debug = true;
-    }
-
     if world.hit(r, Interval::new(0.001, f64::INFINITY), &mut rec, data) {
         if rec.hits_aabb_edge {
             return Color::red();
@@ -177,7 +169,7 @@ fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable, data: &mut Data, option:
         if let Some(mat) = &rec.mat {
             if mat.scatter(r, &rec, &mut attenuation, &mut scattered) {
                 data.add_scatter_ray();
-                return attenuation * ray_color(&scattered, depth - 1, world, data, None);
+                return attenuation * ray_color(&scattered, depth - 1, world, data);
             }
         }
 

@@ -60,13 +60,7 @@ impl Hittable for Sphere {
         let outward_normal = (rec.p - self.center) / self.radius;
         rec.set_face_normal(r, outward_normal);
         rec.mat = Some(Rc::clone(&self.mat));
-        
-        if rec.debug && self.center.equals(-1.0, 0.0, -1.0) { 
-            // println!("{:.6?} {:.6?}", self.center, r.origin());
-            // println!("{:.6} {:.6} {:.6} {a:.6} {h:.6} {c:.6}", oc.x(), oc.y(), oc.z());
-            rec.debug = false;
-        }
-        
+
         true
     }
 

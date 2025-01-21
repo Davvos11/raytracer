@@ -143,7 +143,9 @@ async fn run(args: Cli) {
             let extend_debug = extend_debug.unwrap();
             println!("Generate:    {:?}", &generate_debug[0..20]);
             println!("Extend:      {:?}", &extend_debug[0..20]);
-            println!("Extend != 0: {:?}", &get_non_zero(&extend_debug, Some(20)));
+            let extend_nonzero = get_non_zero(&extend_debug);
+            println!("Extend != 0: {:?}", extend_nonzero.iter().take(20).collect::<Vec<_>>());
+            println!("Extend != 0: {}", extend_nonzero.len())
         }
         // state.render(&mut file).await
         //     .expect("Could not write to image file");
