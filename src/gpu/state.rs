@@ -115,10 +115,8 @@ impl GPUState {
         let output_buffer = device.create_buffer(&output_buffer_desc);
 
         // Debug buffer
-        let debug_buffer_size =
-            (size_of::<u32>() as u32 * 32) as wgpu::BufferAddress;
         let debug_buffer_desc = wgpu::BufferDescriptor {
-            size: debug_buffer_size,
+            size: output_buffer_size,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             label: Some("Debug Buffer"),
             mapped_at_creation: false,
@@ -439,7 +437,7 @@ impl GPUState {
         result
     }
 
-    pub async fn generate(&self, debug: bool) -> Option<Vec<f32>> {
+    pub async fn generate<T: bytemuck::Pod>(&self, debug: bool) -> Option<Vec<T>> {
         let mut encoder = self
             .device
             .create_command_encoder(&CommandEncoderDescriptor {
@@ -477,7 +475,7 @@ impl GPUState {
         }
     }
     
-    pub async fn extend(&self, debug: bool) -> Option<Vec<f32>> {
+    pub async fn extend<T: bytemuck::Pod>(&self, debug: bool) -> Option<Vec<T>> {
         let mut encoder = self
             .device
             .create_command_encoder(&CommandEncoderDescriptor {

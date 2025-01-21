@@ -109,6 +109,10 @@ impl Vec3 {
     pub fn red() -> Self { Self::new(1.0, 0.0, 0.0) }
     pub fn green() -> Self { Self::new(0.0, 1.0, 0.0) }
     pub fn blue() -> Self { Self::new(0.0, 0.0, 1.0) }
+    
+    pub fn equals(&self, x: f64, y: f64, z: f64) -> bool {
+        self.x() == x && self.y() == y && self.z() == z
+    }
 }
 
 impl Neg for Vec3 {
