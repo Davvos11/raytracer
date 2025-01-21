@@ -56,12 +56,13 @@ async fn run(args: Cli) {
         // let (world, filename) = scenes::weekend_custom(2, 0.9, 0.05);
         // let (world, filename) = scenes::weekend_custom(1, 0.5, 0.25);
         // let (world, filename) = scenes::weekend_custom(5, 0.8, 0.15);
+        let (world, filename) = scenes::simple_diffuse();
         // let (world, filename) = scenes::simple_hollow_glass();
         // let (world, filename) = scenes::simple_shiny_metal();
         // let (world, filename) = scenes::simple_fuzzy_metal();
         // let (world, filename) = scenes::simple_triangle();
         // let (world, filename) = scenes::triangle_materials();
-        let (world, filename) = scenes::triangle_test();
+        // let (world, filename) = scenes::triangle_test();
 
         // Serialize the world
         let filename = format!("scenes/{filename}.json");
