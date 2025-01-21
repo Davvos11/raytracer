@@ -1,7 +1,7 @@
 use crate::camera::Camera;
 use crate::gpu::state::GPUState;
+use crate::utils::get_non_zero;
 use clap::Parser;
-use std::cmp::min;
 use std::fs::File;
 use std::rc::Rc;
 use std::time::Instant;
@@ -12,7 +12,6 @@ use value::color::Color;
 use value::data::Data;
 use value::material::{Lambertian, MaterialType};
 use value::vec3::{Point3, Vec3};
-use crate::utils::get_non_zero;
 
 mod hittable;
 mod camera;
