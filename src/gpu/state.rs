@@ -1,12 +1,13 @@
-use std::cmp::min;
 use crate::camera::Camera;
 use crate::gpu::types::{CameraData, SphereData, TriangleData};
 use crate::hittable::hittable_list::HittableList;
+use crate::value::vec3::Vec3;
 use image::ImageFormat;
+use std::cmp::min;
 use std::io;
 use std::io::Write;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{include_wgsl, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, Color, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor, Features, InstanceDescriptor, Limits, LoadOp, MemoryHints, Operations, PipelineLayoutDescriptor, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, ShaderStages, StoreOp, Texture, TextureView};
+use wgpu::{include_wgsl, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, BufferSize, Color, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor, Features, InstanceDescriptor, Limits, LoadOp, MemoryHints, Operations, PipelineLayoutDescriptor, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, ShaderStages, StoreOp, Texture, TextureView};
 
 pub struct GPUState {
     device: wgpu::Device,
@@ -28,11 +29,15 @@ struct Buffers {
     ray: wgpu::Buffer,
     triangle: wgpu::Buffer,
     sphere: wgpu::Buffer,
+    shadow_ray: wgpu::Buffer,
+    reflection_ray: wgpu::Buffer,
+    random_unit: wgpu::Buffer,
 }
 
 struct Pipelines {
     generate: ComputePipeline,
     extend: ComputePipeline,
+    shade: ComputePipeline,
 }
 
 impl GPUState {
@@ -173,6 +178,39 @@ impl GPUState {
                     count: None,
                 },
                 BindGroupLayoutEntry {
+                    // Shadow ray buffer
+                    binding: 4,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: false},
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    // Reflection ray buffer
+                    binding: 5,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: false},
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    // Random unit buffer
+                    binding: 6,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: true},
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
                     // Debug data
                     binding: 99,
                     visibility: ShaderStages::COMPUTE,
@@ -204,7 +242,7 @@ impl GPUState {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let ray_item_size = (size_of::<f32>() * 9 + size_of::<u32>()) as u32;
+        let ray_item_size = (size_of::<f32>() * 7 + size_of::<u32>() * 3) as u32;
         let ray_buffer_size =
             (cam.image_width * cam.image_height() * ray_item_size) as u64;
         let ray_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -272,8 +310,42 @@ impl GPUState {
         ////////////////////////////////////////////////////////////////////////////
         let shade_shader = device.create_shader_module(include_wgsl!("shade.wgsl"));
 
+        let shadow_ray_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Shadow ray Buffer"),
+            size: ray_buffer_size,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+
+        let reflection_ray_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Shadow ray Buffer"),
+            size: ray_buffer_size,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+
+        let vector_size = (size_of::<f32>() * 3 * 3) as u32;
+        let random_unit_buffer_size =
+            (cam.image_width * cam.image_height() * vector_size) as u64;
+        let random_unit_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Random unit Buffer"),
+            size: random_unit_buffer_size,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        // Set up pipeline
+        let shade_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
+            label: Some("Shade kernel"),
+            layout: Some(&layout),
+            module: &shade_shader,
+            entry_point: Some("main"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
+
         ////////////////////////////////////////////////////////////////////////////
-        
+
         let buffers = Buffers {
             output: output_buffer,
             debug: debug_buffer,
@@ -281,11 +353,15 @@ impl GPUState {
             ray: ray_buffer,
             triangle: triangle_buffer,
             sphere: sphere_buffer,
+            shadow_ray: shadow_ray_buffer,
+            reflection_ray: reflection_ray_buffer,
+            random_unit: random_unit_buffer,
         };
 
         let pipelines = Pipelines {
             generate: generate_pipeline,
             extend: extend_pipeline,
+            shade: shade_pipeline,
         };
 
         // Instantiate bind groups
@@ -308,6 +384,18 @@ impl GPUState {
                 BindGroupEntry {
                     binding: 3,
                     resource: buffers.sphere.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: buffers.shadow_ray.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: buffers.reflection_ray.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 6,
+                    resource: buffers.random_unit.as_entire_binding(),
                 },
                 BindGroupEntry {
                     binding: 99,
@@ -431,7 +519,7 @@ impl GPUState {
             let data = buffer_slice.get_mapped_range();
             bytemuck::cast_slice(&data).clone_into(&mut result);
         }
-        
+
         // Unmap the output buffer
         self.buffers.output.unmap();
         result
@@ -469,12 +557,12 @@ impl GPUState {
         self.queue.submit(Some(encoder.finish()));
 
         if debug {
-            Some(self.get_output_buffer().await) 
+            Some(self.get_output_buffer().await)
         } else {
             None
         }
     }
-    
+
     pub async fn extend<T: bytemuck::Pod>(&self, debug: bool) -> Option<Vec<T>> {
         let mut encoder = self
             .device
@@ -490,6 +578,59 @@ impl GPUState {
             compute_pass.set_pipeline(&self.pipelines.extend);
             compute_pass.set_bind_group(0, &self.bind_group, &[]);
             compute_pass.insert_debug_marker("Extend kernel");
+            compute_pass.dispatch_workgroups(self.texture_width, self.texture_height, 1);
+        }
+
+        if debug {
+            // Copy ray buffer to output (CPU) buffer
+            encoder.copy_buffer_to_buffer(
+                &self.buffers.debug,
+                0,
+                &self.buffers.output,
+                0,
+                min(self.buffers.debug.size(), self.buffers.output.size()),
+            );
+        }
+
+        self.queue.submit(Some(encoder.finish()));
+
+        if debug {
+            Some(self.get_output_buffer().await)
+        } else {
+            None
+        }
+    }
+
+    pub async fn shade<T: bytemuck::Pod>(&self, debug: bool) -> Option<Vec<T>> {
+        {
+            // Generate new random unit vectors
+            let amount = self.buffers.random_unit.size() / 4 / 3;
+            let random_unit_vectors: Vec<[f32; 3]> = (0..amount)
+                .map(|_| Vec3::random_unit().into())
+                .collect();
+            let data = bytemuck::cast_slice(&random_unit_vectors);
+            let data_len = BufferSize::new(data.len() as u64).expect("Size should be > 0");
+            // Move vectors to buffer
+            let mut write = self.queue.write_buffer_with(&self.buffers.random_unit, 0, data_len)
+                .expect("Failed to create buffer writer for random unit buffer");
+            write.as_mut().copy_from_slice(data);
+            self.queue.submit([]);
+        }
+
+        let mut encoder = self
+            .device
+            .create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("Shade encoder"),
+            });
+
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: Some("Shade pass"),
+                timestamp_writes: None,
+            });
+            compute_pass.set_pipeline(&self.pipelines.shade);
+            compute_pass.set_bind_group(0, &self.bind_group, &[]);
+            compute_pass.insert_debug_marker("Shade kernel");
             compute_pass.dispatch_workgroups(self.texture_width, self.texture_height, 1);
         }
 

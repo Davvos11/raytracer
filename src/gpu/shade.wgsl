@@ -2,7 +2,6 @@ struct TriangleData {
     v0: vec3<f32>,
     v1: vec3<f32>,
     v2: vec3<f32>,
-    tCentroid: vec3<f32> // centroid is a reserved keyword
 }
 
 @group(0) @binding(2) var<storage, read> triangleData: array<TriangleData>;
@@ -15,8 +14,8 @@ struct SphereData {
 @group(0) @binding(3) var<storage, read> sphereData: array<SphereData>;
 
 struct ScreenData {
-    x: f32,
-    y: f32
+    x: u32,
+    y: u32
 }
 
 @group(0) @binding(0) var<uniform> screenData: ScreenData;
@@ -35,6 +34,8 @@ struct Ray {
 
 @group(0) @binding(6) var<storage, read> randomUnit: array<vec3<f32>>;
 
+@group(0) @binding(99) var<storage, read_write> debugData: array<Ray>;
+
 var<workgroup> shadowRayIdx: atomic<u32>;
 var<workgroup> extensionRayIdx: atomic<u32>;
 
@@ -43,10 +44,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let x = global_id.x;
     let y = global_id.y;
         
-    if (x < u32(screenData.x) && y < u32(screenData.y)) {
-        let index = y * u32(screenData.x) + x;
+    if (x < screenData.x && y < screenData.y) {
+        let index = y * screenData.x + x;
         let ray = rayBuffer[index];
-
+        
         if (ray.t <= 0.0) {
             return;
         }
