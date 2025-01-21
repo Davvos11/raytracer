@@ -30,6 +30,7 @@ impl Triangle {
     pub fn a(&self) -> Point3 { self.v0 }
     pub fn b(&self) -> Point3 { self.v1 }
     pub fn c(&self) -> Point3 { self.v2 }
+    pub fn mat(&self ) -> &Rc<dyn Material> { &self.mat }
 }
 
 #[typetag::serde]

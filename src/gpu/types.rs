@@ -1,6 +1,10 @@
+use wgpu::Color;
 use crate::camera::Camera;
+use crate::hittable::Hittable;
 use crate::hittable::sphere::Sphere;
 use crate::hittable::triangle::Triangle;
+use crate::value::color;
+use crate::value::material::{Lambertian, MaterialType};
 
 #[repr(C)]
 #[derive(Default, Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -41,12 +45,48 @@ pub struct TriangleData {
     v1: [f32; 3],
     _1: [u32; 1], // Padding
     v2: [f32; 3],
-    _3: [u32; 1], // Padding
+    material: u32,
+    color: [f32; 3],
+    fuzz: f32
 }
 
 
 impl From<&Triangle> for TriangleData {
     fn from(value: &Triangle) -> Self {
+        let color: [f32; 3];
+        let material: u32;
+        let fuzz: f32;
+
+        if let Some(material_type) = value.material_type() {
+            match (material_type) {
+                MaterialType::Lambertian => {
+                    color = value.mat().albedo().into();
+                    material = 1;
+                    fuzz = 0.0;
+                }
+                MaterialType::Metal => {
+                    color = value.mat().albedo().into();
+                    material = 2;
+                    fuzz = value.mat().fuzz() as f32;
+                }
+                MaterialType::Dielectric => {
+                    color = color::Color::default().into();
+                    material = 3;
+                    fuzz = f32::default()
+                }
+            }
+            
+            return Self {
+                v0: value.a().into(),
+                v1: value.b().into(),
+                v2: value.c().into(),
+                color,
+                material,
+                fuzz,
+                ..Default::default()
+            }
+        }
+
         Self {
             v0: value.a().into(),
             v1: value.b().into(),
@@ -61,13 +101,51 @@ impl From<&Triangle> for TriangleData {
 pub struct SphereData {
     center: [f32; 3],
     radius: f32,
+    color: [f32; 3],
+    material: u32,
+    fuzz: f32
 }
 
 impl From<&Sphere> for SphereData {
+    
     fn from(value: &Sphere) -> Self {
+        let color: [f32; 3];
+        let material: u32;
+        let fuzz: f32;
+        
+        if let Some(material_type) = value.material_type() {
+            match (material_type) {
+                MaterialType::Lambertian => {
+                    color = value.mat().albedo().into();
+                    material = 1;
+                    fuzz = f32::default();
+                }
+                MaterialType::Metal => {
+                    color = value.mat().albedo().into();
+                    material = 2;
+                    fuzz = value.mat().fuzz() as f32;
+                }
+                MaterialType::Dielectric => {
+                    color = color::Color::default().into();
+                    material = 3;
+                    fuzz = f32::default()
+                }
+            }
+            
+
+            return Self {
+                center: value.center().into(),
+                radius: value.radius() as f32,
+                color,
+                material,
+                fuzz
+            }
+        }
+
         Self {
             center: value.center().into(),
             radius: value.radius() as f32,
+            ..Default::default()
         }
     }
 }

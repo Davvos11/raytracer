@@ -17,6 +17,9 @@ pub trait Material {
     fn scatter(&self, r_in: &Ray, hit_record: &HitRecord, attenuation: &mut Color, scattered: &mut Ray) -> bool;
 
     fn get_type(&self) -> MaterialType;
+    
+    fn albedo(&self) -> Color;
+    fn fuzz(&self) -> f64;
 }
 
 #[derive(Serialize, Deserialize)]
@@ -28,6 +31,8 @@ impl Lambertian {
     pub fn new(albedo: Color) -> Self {
         Self { albedo }
     }
+    
+    
 }
 
 #[typetag::serde]
@@ -48,6 +53,9 @@ impl Material for Lambertian {
     fn get_type(&self) -> MaterialType {
         MaterialType::Lambertian
     }
+
+    fn albedo(&self) -> Color { self.albedo }
+    fn fuzz(&self) -> f64 { f64::default() }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -60,6 +68,8 @@ impl Metal {
     pub fn new(albedo: Color, fuzz: f64) -> Self {
         Self { albedo, fuzz: if fuzz < 1.0 { fuzz } else { 1.0 } }
     }
+    
+    
 }
 
 #[typetag::serde]
@@ -76,6 +86,9 @@ impl Material for Metal {
     fn get_type(&self) -> MaterialType {
         MaterialType::Metal
     }
+
+    fn albedo(&self) -> Color { self.albedo }
+    fn fuzz(&self) -> f64 { self.fuzz }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -115,6 +128,9 @@ impl Material for Dielectric {
     fn get_type(&self) -> MaterialType {
         MaterialType::Dielectric
     }
+
+    fn albedo(&self) -> Color { Color::default() }
+    fn fuzz(&self) -> f64 { f64::default() }
 }
 
 fn reflectance(cosine: f64, refraction_index: f64) -> f64 {

@@ -28,6 +28,10 @@ impl Sphere {
     pub fn radius(&self) -> f64 {
         self.radius
     }
+    
+    pub fn mat(&self) -> &Rc<dyn Material> {
+        &self.mat
+    }
 }
 
 #[typetag::serde]

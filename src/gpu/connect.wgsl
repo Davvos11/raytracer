@@ -2,14 +2,19 @@ struct TriangleData {
     v0: vec3<f32>,
     v1: vec3<f32>,
     v2: vec3<f32>,
-    tCentroid: vec3<f32> // centroid is a reserved keyword
+    material: u32,
+    color: vec3<f32>,
+    fuzz: f32
 }
 
 @group(0) @binding(2) var<storage, read> triangleData: array<TriangleData>;
 
 struct SphereData {
     center: vec3<f32>,
-    radius: f32
+    radius: f32,
+    color: vec3<f32>,
+    material: u32,
+    fuzz: f32
 }
 
 @group(0) @binding(3) var<storage, read> sphereData: array<SphereData>;
