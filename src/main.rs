@@ -1,6 +1,5 @@
 use crate::camera::Camera;
 use crate::gpu::state::GPUState;
-use crate::utils::get_non_zero;
 use clap::Parser;
 use std::fs::File;
 use std::rc::Rc;
@@ -135,26 +134,8 @@ async fn run(args: Cli) {
         // GPU rendering
         let state = GPUState::new(&mut cam, &world).await;
         data.set_init_time(start.elapsed().as_secs_f64());
-        let debug = true;
-        let generate_debug = state.generate::<f32>(debug).await;
-        let extend_debug = state.extend::<u32>(debug).await;
-        let shade_debug = state.shade::<f32>(debug).await;
-        if debug {
-            let generate_debug = generate_debug.unwrap();
-            let extend_debug = extend_debug.unwrap();
-            let shade_debug = shade_debug.unwrap();
-            println!("Generate:    {:?}", &generate_debug[0..20]);
-            println!("Extend:      {:?}", &extend_debug[0..20]);
-            let extend_nonzero = get_non_zero(&extend_debug);
-            println!("Extend != 0: {:?}", extend_nonzero.iter().take(20).collect::<Vec<_>>());
-            println!("Extend != 0: {}", extend_nonzero.len());
-            println!("Shade:       {:?}", &shade_debug[0..20]);
-            let shade_nonzero = get_non_zero(&shade_debug);
-            println!("Shade != 0:  {:?}", shade_nonzero.iter().take(20).collect::<Vec<_>>());
-            println!("Shade != 0:  {}", shade_nonzero.len());
-        }
-        // state.render(&mut file).await
-        //     .expect("Could not write to image file");
+        state.render(&mut file).await
+            .expect("Could not write to image file");
     } else {
         // CPU rendering
         // Initialise structures like BVH

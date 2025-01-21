@@ -20,8 +20,8 @@ struct SphereData {
 @group(0) @binding(3) var<storage, read> sphereData: array<SphereData>;
 
 struct ScreenData {
-    x: f32,
-    y: f32
+    x: u32,
+    y: u32
 }
 
 @group(0) @binding(0) var<uniform> screenData: ScreenData;
