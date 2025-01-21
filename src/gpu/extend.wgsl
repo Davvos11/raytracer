@@ -2,8 +2,9 @@ struct TriangleData {
     v0: vec3<f32>,
     v1: vec3<f32>,
     v2: vec3<f32>,
-    tCentroid: vec3<f32> // centroid is a reserved keyword
 }
+
+// (I removed centroid, I believe it was only used for BVH construction)
 
 @group(0) @binding(2) var<storage, read> triangleData: array<TriangleData>;
 
@@ -14,9 +15,11 @@ struct SphereData {
 
 @group(0) @binding(3) var<storage, read> sphereData: array<SphereData>;
 
+// I think this will work, because binding 0 is used for cameraData,
+//  which also starts with two u32s for x and y
 struct ScreenData {
-    x: f32,
-    y: f32
+    x: u32,
+    y: u32,
 }
 
 @group(0) @binding(0) var<uniform> screenData: ScreenData;
@@ -42,10 +45,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let x = global_id.x;
     let y = global_id.y;
         
-    if (x < u32(screenData.x) && y < u32(screenData.y)) {
-        let index = y * u32(screenData.x) + x;
+    if (x < screenData.x && y < screenData.y) {
+        let index = y * screenData.x + x;
         
-        var ray_t = Interval(0.001, 10000000); // todo: find a way in wgsl to get max f32 value
+        var ray_t = Interval(0.001, 10000000); // todo: find a way in wgsl to get max f32 value (0x1.fffffcp-127f ??)
         var ray = rayBuffer[index];
         var hit_anything = false;
         

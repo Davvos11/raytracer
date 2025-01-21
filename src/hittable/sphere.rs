@@ -20,6 +20,14 @@ impl Sphere {
     pub fn new(center: Point3, radius: f64, mat: Rc<dyn Material>) -> Self {
         Self { center, radius: f64::max(0.0, radius), mat }
     }
+    
+    pub fn center(&self) -> Point3 {
+        self.center
+    }
+    
+    pub fn radius(&self) -> f64 {
+        self.radius
+    }
 }
 
 #[typetag::serde]
@@ -76,5 +84,9 @@ impl Hittable for Sphere {
 
     fn material_type(&self) -> Option<MaterialType> {
         Some(self.mat.get_type())
+    }
+
+    fn as_sphere(&self) -> Option<&Sphere> {
+        Some(self)
     }
 }

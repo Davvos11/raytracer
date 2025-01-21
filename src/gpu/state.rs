@@ -1,10 +1,11 @@
 use crate::camera::Camera;
-use crate::gpu::types::CameraData;
+use crate::gpu::types::{CameraData, SphereData, TriangleData};
+use crate::hittable::hittable_list::HittableList;
 use image::ImageFormat;
 use std::io;
 use std::io::Write;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{include_wgsl, Backends, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, Color, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor, Features, InstanceDescriptor, Limits, LoadOp, MemoryHints, Operations, PipelineLayoutDescriptor, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, ShaderStages, StoreOp, Texture, TextureView};
+use wgpu::{include_wgsl, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, Color, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor, Features, InstanceDescriptor, Limits, LoadOp, MemoryHints, Operations, PipelineLayoutDescriptor, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, ShaderStages, StoreOp, Texture, TextureView};
 
 pub struct GPUState {
     device: wgpu::Device,
@@ -16,21 +17,24 @@ pub struct GPUState {
     texture_height: u32,
     pipelines: Pipelines,
     buffers: Buffers,
-    bind_group_layout: BindGroupLayout,
+    bind_group: BindGroup,
 }
 
 struct Buffers {
     camera: wgpu::Buffer,
     ray: wgpu::Buffer,
     output: wgpu::Buffer,
+    triangle: wgpu::Buffer,
+    sphere: wgpu::Buffer,
 }
 
 struct Pipelines {
     generate: ComputePipeline,
+    extend: ComputePipeline,
 }
 
 impl GPUState {
-    pub async fn new(cam: &mut Camera) -> Self {
+    pub async fn new(cam: &mut Camera, world: &HittableList) -> Self {
         // Initialise camera
         cam.initialise();
         // Drop mutability of camera object
@@ -103,7 +107,7 @@ impl GPUState {
             usage: wgpu::BufferUsages::COPY_DST
                 // this tells wpgu that we want to read this buffer from the cpu
                 | wgpu::BufferUsages::MAP_READ,
-            label: None,
+            label: Some("Output Buffer"),
             mapped_at_creation: false,
         };
         let output_buffer = device.create_buffer(&output_buffer_desc);
@@ -114,6 +118,7 @@ impl GPUState {
             label: None,
             entries: &[
                 BindGroupLayoutEntry {
+                    // Camera data
                     binding: 0,
                     visibility: ShaderStages::COMPUTE,
                     ty: BindingType::Buffer {
@@ -124,10 +129,33 @@ impl GPUState {
                     count: None,
                 },
                 BindGroupLayoutEntry {
+                    // Ray buffer
                     binding: 1,
                     visibility: ShaderStages::COMPUTE,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Storage { read_only: false},
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    // Triangle data
+                    binding: 2,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: true},
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    // Sphere data
+                    binding: 3,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: true},
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
@@ -147,17 +175,18 @@ impl GPUState {
         ////////////////////////////////////////////////////////////////////////////
         let generate_shader = device.create_shader_module(include_wgsl!("generate.wgsl"));
 
-        let camera_params = [CameraData::from(cam)];
+        let camera_data = [CameraData::from(cam)];
         let camera_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&camera_params),
+            contents: bytemuck::cast_slice(&camera_data),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
+        let ray_item_size = (size_of::<f32>() * 9 + size_of::<u32>()) as u32;
         let ray_buffer_size =
-            (cam.image_width * cam.image_height() * size_of::<[f32; 6]>() as u32) as u64;
+            (cam.image_width * cam.image_height() * ray_item_size) as u64;
         let ray_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Ray buffer"),
+            label: Some("Ray Buffer"),
             size: ray_buffer_size,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
@@ -178,20 +207,88 @@ impl GPUState {
         ////////////////////////////////////////////////////////////////////////////
         let extend_shader = device.create_shader_module(include_wgsl!("extend.wgsl"));
 
+        let mut triangle_data: Vec<_> = world.objects.iter()
+            .filter_map(|o| o.as_triangle())
+            .map(TriangleData::from)
+            .collect();
+        if triangle_data.is_empty() {
+            // Empty storage buffers are not allowed
+            triangle_data.push(TriangleData::default());
+        }
+        let triangle_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Triangle Buffer"),
+            contents: bytemuck::cast_slice(&triangle_data),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let mut sphere_data: Vec<_> = world.objects.iter()
+            .filter_map(|o| o.as_sphere())
+            .map(SphereData::from)
+            .collect();
+        if sphere_data.is_empty() {
+            // Empty storage buffers are not allowed
+            sphere_data.push(SphereData::default());
+        }
+        let sphere_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Sphere Buffer"),
+            contents: bytemuck::cast_slice(&sphere_data),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        });
+
+        // Set up pipeline
+        let extend_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
+            label: Some("Extend kernel"),
+            layout: Some(&layout),
+            module: &extend_shader,
+            entry_point: Some("main"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
+
         ////////////////////////////////////////////////////////////////////////////
         // Shade kernel
         ////////////////////////////////////////////////////////////////////////////
         let shade_shader = device.create_shader_module(include_wgsl!("shade.wgsl"));
 
+        ////////////////////////////////////////////////////////////////////////////
+        
         let buffers = Buffers {
             camera: camera_buffer,
             ray: ray_buffer,
+            triangle: triangle_buffer,
+            sphere: sphere_buffer,
             output: output_buffer,
         };
 
         let pipelines = Pipelines {
             generate: generate_pipeline,
+            extend: extend_pipeline,
         };
+
+        // Instantiate bind groups
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: None,
+            layout: &bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: buffers.camera.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: buffers.ray.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: buffers.triangle.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: buffers.sphere.as_entire_binding(),
+                },
+            ],
+        });
+
 
         Self {
             device,
@@ -203,12 +300,12 @@ impl GPUState {
             texture_height,
             buffers,
             pipelines,
-            bind_group_layout,
+            bind_group,
         }
     }
 
     pub async fn render(
-        &mut self,
+        &self,
         writer: &mut (impl Write + io::Seek),
     ) 
         -> Result<(), image::ImageError> {
@@ -292,38 +389,28 @@ impl GPUState {
         Ok(())
     }
 
-    pub async fn print_output_buffer(&self) {
-        // Get the data out of the buffer
-        let buffer_slice = self.buffers.output.slice(..);
-        let (tx, rx) = futures_intrusive::channel::shared::oneshot_channel();
-        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-            tx.send(result).unwrap();
-        });
-        self.device.poll(wgpu::Maintain::Wait).panic_on_timeout();
-        rx.receive().await.unwrap().unwrap();
+    pub async fn get_output_buffer<T: bytemuck::Pod>(&self) -> Vec<T> {
+        let mut result: Vec<T> = vec![];
+        {
+            // Get the data out of the buffer
+            let buffer_slice = self.buffers.output.slice(..);
+            let (tx, rx) = futures_intrusive::channel::shared::oneshot_channel();
+            buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+                tx.send(result).unwrap();
+            });
+            self.device.poll(wgpu::Maintain::Wait).panic_on_timeout();
+            rx.receive().await.unwrap().unwrap();
 
-        let data = buffer_slice.get_mapped_range();
-        let result: &[f32] = bytemuck::cast_slice(&data);
-        dbg!(&result[0..100]);
+            let data = buffer_slice.get_mapped_range();
+            bytemuck::cast_slice(&data).clone_into(&mut result);
+        }
+        
+        // Unmap the output buffer
+        self.buffers.output.unmap();
+        result
     }
 
-    pub async fn generate(&self, debug: bool) {
-        // Instantiate bind groups
-        let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
-            label: None,
-            layout: &self.bind_group_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: self.buffers.camera.as_entire_binding(),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: self.buffers.ray.as_entire_binding(),
-                },
-            ],
-        });
-
+    pub async fn generate(&self, debug: bool) -> Option<Vec<f64>> {
         let mut encoder = self
             .device
             .create_command_encoder(&CommandEncoderDescriptor {
@@ -336,7 +423,7 @@ impl GPUState {
                 timestamp_writes: None,
             });
             compute_pass.set_pipeline(&self.pipelines.generate);
-            compute_pass.set_bind_group(0, &bind_group, &[]);
+            compute_pass.set_bind_group(0, &self.bind_group, &[]);
             compute_pass.insert_debug_marker("Generate kernel");
             compute_pass.dispatch_workgroups(self.texture_width, self.texture_height, 1);
         }
@@ -355,7 +442,47 @@ impl GPUState {
         self.queue.submit(Some(encoder.finish()));
 
         if debug {
-            self.print_output_buffer().await;
+            Some(self.get_output_buffer().await) 
+        } else {
+            None
+        }
+    }
+    
+    pub async fn extend(&self, debug: bool) -> Option<Vec<f64>> {
+        let mut encoder = self
+            .device
+            .create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("Extend encoder"),
+            });
+
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: Some("Extend pass"),
+                timestamp_writes: None,
+            });
+            compute_pass.set_pipeline(&self.pipelines.extend);
+            compute_pass.set_bind_group(0, &self.bind_group, &[]);
+            compute_pass.insert_debug_marker("Extend kernel");
+            compute_pass.dispatch_workgroups(self.texture_width, self.texture_height, 1);
+        }
+
+        if debug {
+            // Copy ray buffer to output (CPU) buffer
+            encoder.copy_buffer_to_buffer(
+                &self.buffers.ray,
+                0,
+                &self.buffers.output,
+                0,
+                self.buffers.output.size(),
+            );
+        }
+
+        self.queue.submit(Some(encoder.finish()));
+
+        if debug {
+            Some(self.get_output_buffer().await)
+        } else {
+            None
         }
     }
 }

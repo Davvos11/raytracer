@@ -106,4 +106,8 @@ impl Hittable for Triangle {
     fn material_type(&self) -> Option<MaterialType> {
         Some(self.mat.get_type())
     }
+
+    fn as_triangle(&self) -> Option<&Triangle> {
+        Some(self)
+    }
 }

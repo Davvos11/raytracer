@@ -1,16 +1,17 @@
 use crate::camera::Camera;
-use value::color::Color;
-use value::data::Data;
-use value::material::{Lambertian, MaterialType};
-use utils::parser::parse_ply;
-use utils::rtweekend::{check_valid_options, get_output_filename, Cli, FileFormat, Options};
-use value::vec3::{Point3, Vec3};
+use crate::gpu::state::GPUState;
 use clap::Parser;
+use std::cmp::min;
 use std::fs::File;
 use std::rc::Rc;
 use std::time::Instant;
+use utils::parser::parse_ply;
+use utils::rtweekend::{check_valid_options, get_output_filename, Cli, FileFormat, Options};
 use utils::scenes;
-use crate::gpu::state::GPUState;
+use value::color::Color;
+use value::data::Data;
+use value::material::{Lambertian, MaterialType};
+use value::vec3::{Point3, Vec3};
 
 mod hittable;
 mod camera;
@@ -131,9 +132,21 @@ async fn run(args: Cli) {
 
     if args.gpu { 
         // GPU rendering
-        let mut state = GPUState::new(&mut cam).await;
+        let state = GPUState::new(&mut cam, &world).await;
         data.set_init_time(start.elapsed().as_secs_f64());
-        state.generate(true).await;
+        let debug = true;
+        let generate_debug = state.generate(debug).await;
+        let extend_debug = state.extend(debug).await;
+        if debug {
+            // Compare rays before and after extending
+            let changed_rays: Vec<_> = generate_debug.unwrap().into_iter()
+                .zip(extend_debug.unwrap())
+                .enumerate()
+                .filter(|(_, (a, b))| a != b)
+                .collect();
+            dbg!(&changed_rays[0..min(20, changed_rays.len())]);
+            dbg!(changed_rays.len());
+        }
         // state.render(&mut file).await
         //     .expect("Could not write to image file");
     } else {

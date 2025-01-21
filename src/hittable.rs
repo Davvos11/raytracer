@@ -1,5 +1,7 @@
 use std::rc::Rc;
 use crate::acceleration::aabb::AABB;
+use crate::hittable::sphere::Sphere;
+use crate::hittable::triangle::Triangle;
 use crate::value::data::Data;
 use crate::value::interval::Interval;
 use crate::value::material::{Material, MaterialType};
@@ -40,6 +42,14 @@ pub trait Hittable {
     fn surface_area(&self) -> f64;
     
     fn material_type(&self) -> Option<MaterialType> {
+        None
+    }
+
+    fn as_triangle(&self) -> Option<&Triangle> {
+        None
+    }
+    
+    fn as_sphere(&self) -> Option<&Sphere> {
         None
     }
 }
