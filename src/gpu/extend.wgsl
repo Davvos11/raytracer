@@ -52,24 +52,23 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         var ray_t = Interval(0.001, 10000000); // todo: find a way in wgsl to get max f32 value (0x1.fffffcp-127f ??)
         var ray = rayBuffer[index];
         var hit_anything = false;
-
+        
         for (var i = 0u; i < arrayLength(&triangleData); i++) {
             let currentTriangle = triangleData[i];
             if (hit_triangle(ray, index, i, currentTriangle, ray_t)) {
                 hit_anything = true;
-                debugData[index] = i + 1;
+                ray = rayBuffer[index];
+                ray_t = Interval(0.001, ray.t);
             }
-            ray = rayBuffer[index];
-            ray_t = Interval(0.001, ray.t);
         }
-
+        
         for (var i = 0u; i < arrayLength(&sphereData); i++) {
             let currentSphere = sphereData[i];
             if (hit_sphere(ray, index, i, currentSphere, ray_t)) {
                 hit_anything = true;
+                ray = rayBuffer[index];
+                ray_t = Interval(0.001, ray.t);
             }
-            ray = rayBuffer[index];
-            ray_t = Interval(0.001, ray.t);
         }
     }
 }
@@ -80,21 +79,6 @@ fn hit_sphere(ray: Ray, ray_index: u32, primId: u32, sphere: SphereData, ray_t: 
     let h = ray.direction.x * oc.x + ray.direction.y * oc.y + ray.direction.z * oc.z;
     let c = (oc.x * oc.x + oc.y * oc.y + oc.z * oc.z) - sphere.radius * sphere.radius;
     
-//    if ray_index == 131129 && primId == 2 {
-//        debugData[0] = sphere.center[0];
-//        debugData[1] = sphere.center[1];
-//        debugData[2] = sphere.center[2];
-//        debugData[3] = ray.origin[0];
-//        debugData[4] = ray.origin[1];
-//        debugData[5] = ray.origin[2];
-////        debugData[0] = oc.x;
-////        debugData[1] = oc.y;
-////        debugData[2] = oc.z;
-////        debugData[3] = a;
-////        debugData[4] = h;
-////        debugData[5] = c;
-//    }
-    
     let discriminant = h * h - a * c;
     if discriminant < 0.0 {
         return false;
@@ -103,6 +87,7 @@ fn hit_sphere(ray: Ray, ray_index: u32, primId: u32, sphere: SphereData, ray_t: 
     let sqrt_discriminant = sqrt(discriminant);
     
     var root = (h - sqrt_discriminant) / a;
+    
     if (!interval_surrounds(ray_t, root)) {
         root = (h + sqrt_discriminant) / a;
         if (!interval_surrounds(ray_t, root)) {
