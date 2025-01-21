@@ -14,6 +14,7 @@ struct SphereData {
 }
 
 @group(0) @binding(3) var<storage, read> sphereData: array<SphereData>;
+@group(0) @binding(99) var<storage, read_write> debugData: array<SphereData>;
 
 // I think this will work, because binding 0 is used for cameraData,
 //  which also starts with two u32s for x and y
@@ -63,6 +64,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         for (var i = 0u; i < arrayLength(&sphereData); i++) {
             let currentSphere = sphereData[i];
+            debugData[i] = currentSphere;
             if (hit_sphere(ray, index, i, currentSphere, ray_t)) {
                 hit_anything = true;
             }

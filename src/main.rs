@@ -138,14 +138,8 @@ async fn run(args: Cli) {
         let generate_debug = state.generate(debug).await;
         let extend_debug = state.extend(debug).await;
         if debug {
-            // Compare rays before and after extending
-            let changed_rays: Vec<_> = generate_debug.unwrap().into_iter()
-                .zip(extend_debug.unwrap())
-                .enumerate()
-                .filter(|(_, (a, b))| a != b)
-                .collect();
-            dbg!(&changed_rays[0..min(20, changed_rays.len())]);
-            dbg!(changed_rays.len());
+            println!("Generate: {:?}", &generate_debug.unwrap()[0..20]);
+            println!("Extend:   {:?}", &extend_debug.unwrap()[0..20]);
         }
         // state.render(&mut file).await
         //     .expect("Could not write to image file");

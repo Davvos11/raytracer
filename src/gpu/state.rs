@@ -1,3 +1,4 @@
+use std::cmp::min;
 use crate::camera::Camera;
 use crate::gpu::types::{CameraData, SphereData, TriangleData};
 use crate::hittable::hittable_list::HittableList;
@@ -21,9 +22,10 @@ pub struct GPUState {
 }
 
 struct Buffers {
+    output: wgpu::Buffer,
+    debug: wgpu::Buffer,
     camera: wgpu::Buffer,
     ray: wgpu::Buffer,
-    output: wgpu::Buffer,
     triangle: wgpu::Buffer,
     sphere: wgpu::Buffer,
 }
@@ -111,6 +113,17 @@ impl GPUState {
             mapped_at_creation: false,
         };
         let output_buffer = device.create_buffer(&output_buffer_desc);
+
+        // Debug buffer
+        let debug_buffer_size =
+            (size_of::<u32>() as u32 * 32) as wgpu::BufferAddress;
+        let debug_buffer_desc = wgpu::BufferDescriptor {
+            size: debug_buffer_size,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            label: Some("Debug Buffer"),
+            mapped_at_creation: false,
+        };
+        let debug_buffer = device.create_buffer(&debug_buffer_desc);
         
         // Setup layout
         // We set this up globally so that all compute shaders can use the same buffers
@@ -156,6 +169,17 @@ impl GPUState {
                     visibility: ShaderStages::COMPUTE,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Storage { read_only: true},
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    // Debug data
+                    binding: 99,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: false},
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
@@ -253,11 +277,12 @@ impl GPUState {
         ////////////////////////////////////////////////////////////////////////////
         
         let buffers = Buffers {
+            output: output_buffer,
+            debug: debug_buffer,
             camera: camera_buffer,
             ray: ray_buffer,
             triangle: triangle_buffer,
             sphere: sphere_buffer,
-            output: output_buffer,
         };
 
         let pipelines = Pipelines {
@@ -285,6 +310,10 @@ impl GPUState {
                 BindGroupEntry {
                     binding: 3,
                     resource: buffers.sphere.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 99,
+                    resource: buffers.debug.as_entire_binding(),
                 },
             ],
         });
@@ -410,7 +439,7 @@ impl GPUState {
         result
     }
 
-    pub async fn generate(&self, debug: bool) -> Option<Vec<f64>> {
+    pub async fn generate(&self, debug: bool) -> Option<Vec<f32>> {
         let mut encoder = self
             .device
             .create_command_encoder(&CommandEncoderDescriptor {
@@ -431,11 +460,11 @@ impl GPUState {
         if debug {
             // Copy ray buffer to output (CPU) buffer
             encoder.copy_buffer_to_buffer(
-                &self.buffers.ray,
+                &self.buffers.debug,
                 0,
                 &self.buffers.output,
                 0,
-                self.buffers.output.size(),
+                min(self.buffers.debug.size(), self.buffers.output.size()),
             );
         }
 
@@ -448,7 +477,7 @@ impl GPUState {
         }
     }
     
-    pub async fn extend(&self, debug: bool) -> Option<Vec<f64>> {
+    pub async fn extend(&self, debug: bool) -> Option<Vec<f32>> {
         let mut encoder = self
             .device
             .create_command_encoder(&CommandEncoderDescriptor {
@@ -469,11 +498,11 @@ impl GPUState {
         if debug {
             // Copy ray buffer to output (CPU) buffer
             encoder.copy_buffer_to_buffer(
-                &self.buffers.ray,
+                &self.buffers.debug,
                 0,
                 &self.buffers.output,
                 0,
-                self.buffers.output.size(),
+                min(self.buffers.debug.size(), self.buffers.output.size()),
             );
         }
 
