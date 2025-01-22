@@ -28,3 +28,11 @@ fn linear_to_gamma(linear_component: f64) -> f64 {
         0.0
     }
 }
+
+pub fn linear_to_srgb(linear_component: f32) -> f32 {
+    if linear_component > 0.0 {
+        linear_component.powf(1.0 / 2.2)
+    } else {
+        0.0
+    }
+}

@@ -18,7 +18,7 @@ struct Ray {
 
 @group(0) @binding(1) var<storage, read_write> rayBuffer: array<Ray>;
 
-@group(0) @binding(7) var<storage, read_write> pixelBuffer: array<vec4<u32>>;
+@group(0) @binding(7) var<storage, read_write> pixelBuffer: array<vec4<f32>>;
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -33,10 +33,21 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let pixel_y = ray.screenXy.y;
         let pixel_index = pixel_y * screenData.x + pixel_x;
 
-        let r = u32(ray.accumulator.x * 255);
-        let g = u32(ray.accumulator.y * 255);
-        let b = u32(ray.accumulator.z * 255);
+        let r = to_clamped(ray.accumulator.x);
+        let g = to_clamped(ray.accumulator.y);
+        let b = to_clamped(ray.accumulator.z);
 
         pixelBuffer[pixel_index] = vec4(r, g, b, 255);
+    }
+}
+
+
+fn to_clamped(value: f32) -> f32 {
+    if value < 0.0 {
+        return 0.0;
+    } else if value > 0.9999 {
+        return 0.999;
+    } else {
+        return value;
     }
 }

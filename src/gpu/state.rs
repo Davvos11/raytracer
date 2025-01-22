@@ -11,6 +11,7 @@ use std::io;
 use std::io::Write;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{include_wgsl, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType, BufferSize, CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor, Features, InstanceDescriptor, Limits, MemoryHints, PipelineLayoutDescriptor, PowerPreference, RequestAdapterOptions, ShaderStages, Texture, TextureView};
+use crate::value::color::linear_to_srgb;
 
 pub struct GPUState {
     device: wgpu::Device,
@@ -591,8 +592,9 @@ impl GPUState {
             debug_buffer(shade_debug.as_deref(), "Shade");
         }
 
-        let pixels: Vec<_> = self.finalize::<u32>().await
-            .iter().map(|&val| val as u8)
+        let pixels: Vec<_> = self.finalize::<f32>().await.iter()
+            .map(|&val| linear_to_srgb(val))
+            .map(|val| (256.0 * val) as u8)
             .collect();
 
         use image::{ImageBuffer, Rgba};
