@@ -7,7 +7,7 @@ use std::cmp::min;
 use std::io;
 use std::io::Write;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{include_wgsl, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, BufferSize, Color, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor, Features, InstanceDescriptor, Limits, LoadOp, MemoryHints, Operations, PipelineLayoutDescriptor, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, ShaderStages, StoreOp, Texture, TextureView};
+use wgpu::{include_wgsl, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, BufferSize, Color, CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor, Features, InstanceDescriptor, Limits, LoadOp, MemoryHints, Operations, PipelineLayoutDescriptor, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, ShaderStages, StoreOp, Texture, TextureView};
 use crate::utils::get_non_zero;
 use crate::utils::rtweekend::random_float;
 
@@ -41,6 +41,7 @@ struct Pipelines {
     generate: ComputePipeline,
     extend: ComputePipeline,
     shade: ComputePipeline,
+    finalize: ComputePipeline,
 }
 
 impl GPUState {
@@ -109,27 +110,6 @@ impl GPUState {
         let texture = device.create_texture(&texture_desc);
         let texture_view = texture.create_view(&Default::default());
 
-        // Output buffer where we will copy the pixels out of after rendering
-        let output_buffer_size =
-            (size_of::<u32>() as u32 * texture_width * texture_height) as wgpu::BufferAddress;
-        let output_buffer_desc = wgpu::BufferDescriptor {
-            size: output_buffer_size,
-            usage: wgpu::BufferUsages::COPY_DST
-                // this tells wpgu that we want to read this buffer from the cpu
-                | wgpu::BufferUsages::MAP_READ,
-            label: Some("Output Buffer"),
-            mapped_at_creation: false,
-        };
-        let output_buffer = device.create_buffer(&output_buffer_desc);
-
-        // Debug buffer
-        let debug_buffer_desc = wgpu::BufferDescriptor {
-            size: output_buffer_size,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            label: Some("Debug Buffer"),
-            mapped_at_creation: false,
-        };
-        let debug_buffer = device.create_buffer(&debug_buffer_desc);
         
         // Setup layout
         // We set this up globally so that all compute shaders can use the same buffers
@@ -361,28 +341,49 @@ impl GPUState {
         });
 
         ////////////////////////////////////////////////////////////////////////////
-        // Connect kernel
+        // Finalize kernel
         ////////////////////////////////////////////////////////////////////////////
-        //let connect_shader = device.create_shader_module(include_wgsl!("connect.wgsl"));
+        let finalize_shader = device.create_shader_module(include_wgsl!("finalize.wgsl"));
 
+        let pixel_size = (size_of::<f32>() * 4) as u32;
         let pixel_buffer_size =
-            (texture_width * texture_height * vector_size) as u64;
+            (texture_width * texture_height * pixel_size) as u64;
         let pixel_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Pixel Buffer"),
             size: pixel_buffer_size,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
+        
+        // Output buffer where we will copy the pixels out of after rendering
+        let output_buffer_desc = wgpu::BufferDescriptor {
+            size: pixel_buffer_size,
+            usage: wgpu::BufferUsages::COPY_DST
+                // this tells wpgu that we want to read this buffer from the cpu
+                | wgpu::BufferUsages::MAP_READ,
+            label: Some("Output Buffer"),
+            mapped_at_creation: false,
+        };
+        let output_buffer = device.create_buffer(&output_buffer_desc);
+
+        // Debug buffer
+        let debug_buffer_desc = wgpu::BufferDescriptor {
+            size: pixel_buffer_size,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            label: Some("Debug Buffer"),
+            mapped_at_creation: false,
+        };
+        let debug_buffer = device.create_buffer(&debug_buffer_desc);
 
         // Set up pipeline
-        /*let connect_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
-            label: Some("Connect kernel"),
+        let finalize_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
+            label: Some("Finalize kernel"),
             layout: Some(&layout),
-            module: &connect_shader,
+            module: &finalize_shader,
             entry_point: Some("main"),
             compilation_options: Default::default(),
             cache: None,
-        });*/
+        });
 
 
         ////////////////////////////////////////////////////////////////////////////
@@ -404,6 +405,7 @@ impl GPUState {
             generate: generate_pipeline,
             extend: extend_pipeline,
             shade: shade_pipeline,
+            finalize: finalize_pipeline,
         };
 
         // Instantiate bind groups
@@ -572,8 +574,18 @@ impl GPUState {
         self.buffers.output.unmap();
         result
     }
+    
+    pub fn copy_buffer_to_output(&self, buffer: &wgpu::Buffer, encoder: &mut CommandEncoder) {
+        encoder.copy_buffer_to_buffer(
+            buffer,
+            0,
+            &self.buffers.output,
+            0,
+            min(self.buffers.debug.size(), self.buffers.output.size()),
+        );
+    }
 
-    async fn run_pipeline<T: bytemuck::Pod>(&self, pipeline: &ComputePipeline, label: &str, debug: bool) -> Option<Vec<T>> {
+    async fn run_pipeline<T: bytemuck::Pod>(&self, pipeline: &ComputePipeline, label: &str, get_buffer: Option<&wgpu::Buffer>) -> Option<Vec<T>> {
         let mut encoder = self
             .device
             .create_command_encoder(&CommandEncoderDescriptor {
@@ -591,65 +603,65 @@ impl GPUState {
             compute_pass.dispatch_workgroups(self.texture_width, self.texture_height, 1);
         }
 
-        if debug {
-            // Copy ray buffer to output (CPU) buffer
-            encoder.copy_buffer_to_buffer(
-                &self.buffers.debug,
-                0,
-                &self.buffers.output,
-                0,
-                min(self.buffers.debug.size(), self.buffers.output.size()),
-            );
+        if let Some(buffer) = get_buffer {
+            self.copy_buffer_to_output(buffer, &mut encoder);
         }
 
         self.queue.submit(Some(encoder.finish()));
 
-        if debug {
+        if get_buffer.is_some() {
             Some(self.get_output_buffer().await)
         } else {
             None
         }
     }
     
-    pub async fn render(&self, _writer: &mut (impl Write + io::Seek)) -> Result<(), image::ImageError> {
+    pub async fn render(&self, writer: &mut (impl Write + io::Seek)) -> Result<(), image::ImageError> {
         let debug = true;
         let generate_debug = self.generate::<f32>(debug).await;
         let extend_debug = self.extend::<u32>(debug).await;
         let shade_debug = self.shade::<f32>(debug).await;
-        //let connect_debug = self.connect::<f32>(debug).await;
         if debug {
             let generate_debug = generate_debug.unwrap();
             let extend_debug = extend_debug.unwrap();
             let shade_debug = shade_debug.unwrap();
-            //let connect_debug = connect_debug.unwrap();
             
-            println!("Generate:    {:?}", &generate_debug[0..20]);
+            println!("Generate:      {:?}", &generate_debug[0..20]);
             
-            println!("Extend:      {:?}", &extend_debug[0..20]);
+            println!("Extend:        {:?}", &extend_debug[0..20]);
             let extend_nonzero = get_non_zero(&extend_debug);
-            println!("Extend != 0: {:?}", extend_nonzero.iter().take(20).collect::<Vec<_>>());
-            println!("Extend != 0: {}", extend_nonzero.len());
+            println!("Extend != 0:   {:?}", extend_nonzero.iter().take(20).collect::<Vec<_>>());
+            println!("Extend != 0:   {}", extend_nonzero.len());
 
-            println!("Shade:       {:?}", &shade_debug[0..20]);
+            println!("Shade:         {:?}", &shade_debug[0..20]);
             let shade_nonzero = get_non_zero(&shade_debug);
-            println!("Shade != 0:  {:?}", shade_nonzero.iter().take(20).collect::<Vec<_>>());
-            println!("Shade != 0:  {}", shade_nonzero.len());
-            
-            //println!("Connect:     {:?}", &connect_debug[0..20]);
-            //let connect_nonzero = get_non_zero(&connect_debug);
-            //println!("Connect != 0:{:?}", connect_nonzero.iter().take(20).collect::<Vec<_>>());
-            //println!("Connect != 0:{}", connect_nonzero.len());
+            println!("Shade != 0:    {:?}", shade_nonzero.iter().take(20).collect::<Vec<_>>());
+            println!("Shade != 0:    {}", shade_nonzero.len());
         }
+
+        let pixels: Vec<_> = self.finalize::<f32>().await;
+            // .iter().map(|&val| (val * 255.0) as u8)
+            // .collect();
+        
+        println!("Pixels: {:?}", &pixels[0..20]);
+
+        use image::{ImageBuffer, Rgba};
+        let buffer =
+            ImageBuffer::<Rgba<f32>, _>::from_raw(self.texture_width, self.texture_height, pixels)
+                .expect("Container is not large enough");
+        buffer.write_to(writer, ImageFormat::Png)?;
         
         Ok(())
     }
     
     async fn generate<T: bytemuck::Pod>(&self, debug: bool) -> Option<Vec<T>> {
-        self.run_pipeline(&self.pipelines.generate, "Generate", debug).await
+        let get_buffer = if debug {Some(&self.buffers.debug)} else {None};
+        self.run_pipeline(&self.pipelines.generate, "Generate", get_buffer).await
     }
 
     async fn extend<T: bytemuck::Pod>(&self, debug: bool) -> Option<Vec<T>> {
-        self.run_pipeline(&self.pipelines.extend, "Extend", debug).await
+        let get_buffer = if debug {Some(&self.buffers.debug)} else {None};
+        self.run_pipeline(&self.pipelines.extend, "Extend", get_buffer).await
     }
 
     /// Make sure to call `self.queue.submit([])` after this function.
@@ -685,10 +697,12 @@ impl GPUState {
         self.write_to_buffer(&self.buffers.random_double, &random_floats);
         self.queue.submit([]);
 
-        self.run_pipeline(&self.pipelines.shade, "Shade", debug).await
+        let get_buffer = if debug {Some(&self.buffers.debug)} else {None};
+        self.run_pipeline(&self.pipelines.shade, "Shade", get_buffer).await
     }
 
-    /*async fn connect<T: bytemuck::Pod>(&self, debug: bool) -> Option<Vec<T>> {
-        self.run_pipeline(&self.pipelines.connect, "Connect", debug).await
-    }*/
+    async fn finalize<T: bytemuck::Pod>(&self) -> Vec<T> {
+        let get_buffer = Some(&self.buffers.pixel);
+        self.run_pipeline(&self.pipelines.finalize, "Finalize", get_buffer).await.unwrap()
+    }
 }
