@@ -8,7 +8,7 @@ use std::io;
 use std::io::Write;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{include_wgsl, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, BufferSize, Color, CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor, Features, InstanceDescriptor, Limits, LoadOp, MemoryHints, Operations, PipelineLayoutDescriptor, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, ShaderStages, StoreOp, Texture, TextureView};
-use crate::utils::get_non_zero;
+use crate::utils::{debug_buffer, get_non_zero};
 use crate::utils::rtweekend::random_float;
 
 pub struct GPUState {
@@ -245,7 +245,7 @@ impl GPUState {
             contents: bytemuck::cast_slice(&max_depth),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST
         });
-        
+
         let ray_item_size = BYTE * (4 * 5);
         let ray_buffer_size =
             (texture_width * texture_height * ray_item_size) as u64;
@@ -535,34 +535,13 @@ impl GPUState {
         let generate_debug = self.generate::<u32>(debug).await;
         let extend_debug = self.extend::<u32>(debug).await;
         let shade_debug = self.shade::<f32>(debug).await;
-        if debug {
-            let generate_debug = generate_debug.unwrap();
-            let extend_debug = extend_debug.unwrap();
-            let shade_debug = shade_debug.unwrap();
-            
-            println!("Generate:      {:?}", &generate_debug[0..20]);
-            println!("Generate (end):{:?}", &generate_debug[generate_debug.len() - 20..]);
-            let generate_nonzero = get_non_zero(&generate_debug);
-            println!("Generate != 0: {:?}", generate_nonzero.iter().take(20).collect::<Vec<_>>());
-            println!("Generate != 0: {}", generate_nonzero.len());
-            
-            println!("Extend:        {:?}", &extend_debug[0..20]);
-            let extend_nonzero = get_non_zero(&extend_debug);
-            println!("Extend != 0:   {:?}", extend_nonzero.iter().take(20).collect::<Vec<_>>());
-            println!("Extend != 0:   {}", extend_nonzero.len());
-
-            println!("Shade:         {:?}", &shade_debug[0..20]);
-            let shade_nonzero = get_non_zero(&shade_debug);
-            println!("Shade != 0:    {:?}", shade_nonzero.iter().take(20).collect::<Vec<_>>());
-            println!("Shade != 0:    {}", shade_nonzero.len());
-        }
+        debug_buffer(generate_debug.as_deref(), "Generate");
+        debug_buffer(extend_debug.as_deref(), "Extend");
+        debug_buffer(shade_debug.as_deref(), "Shade");
 
         let pixels: Vec<_> = self.finalize::<u32>().await
             .iter().map(|&val| val as u8)
             .collect();
-
-        println!("First pixels: {:?}", &pixels[0..20]);
-        println!("Last  pixels {:?}", &pixels[2359296 - 20..]);
 
         use image::{ImageBuffer, Rgba};
         let buffer =
