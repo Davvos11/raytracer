@@ -181,6 +181,11 @@ pub fn random_double() -> f64 {
     rng.gen()
 }
 
+pub fn random_float() -> f32 {
+    let mut rng = rand::thread_rng();
+    rng.gen()
+}
+
 pub fn random_double_range(min: f64, max: f64) -> f64 {
     min + (max - min) * random_double()
 }

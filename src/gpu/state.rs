@@ -9,6 +9,7 @@ use std::io::Write;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{include_wgsl, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, BufferSize, Color, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor, Features, InstanceDescriptor, Limits, LoadOp, MemoryHints, Operations, PipelineLayoutDescriptor, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, ShaderStages, StoreOp, Texture, TextureView};
 use crate::utils::get_non_zero;
+use crate::utils::rtweekend::random_float;
 
 pub struct GPUState {
     device: wgpu::Device,
@@ -651,21 +652,39 @@ impl GPUState {
         self.run_pipeline(&self.pipelines.extend, "Extend", debug).await
     }
 
+    /// Make sure to call `self.queue.submit([])` after this function.
+    /// Or use `self.write_to_buffer_submit` instead.
+    fn write_to_buffer<T: bytemuck::Pod>(&self, buffer: &wgpu::Buffer, data: &[T]) {
+        // Cast data to bytes
+        let data = bytemuck::cast_slice(data);
+        let data_len = BufferSize::new(data.len() as u64).expect("Size should be > 0");
+        // Move vectors to buffer
+        let mut write = self.queue.write_buffer_with(buffer, 0, data_len)
+            .expect("Failed to create buffer writer for random unit buffer");
+        write.as_mut().copy_from_slice(data);
+    }
+
+    #[allow(dead_code)]
+    fn write_to_buffer_submit<T: bytemuck::Pod>(&self, buffer: &wgpu::Buffer, data: &[T]) {
+        self.write_to_buffer(buffer, data);
+        self.queue.submit([]);
+    }
+
     async fn shade<T: bytemuck::Pod>(&self, debug: bool) -> Option<Vec<T>> {
-        {
-            // Generate new random unit vectors
-            let amount = self.buffers.random_unit.size() / 4 / 3;
-            let random_unit_vectors: Vec<[f32; 3]> = (0..amount)
-                .map(|_| Vec3::random_unit().into())
-                .collect();
-            let data = bytemuck::cast_slice(&random_unit_vectors);
-            let data_len = BufferSize::new(data.len() as u64).expect("Size should be > 0");
-            // Move vectors to buffer
-            let mut write = self.queue.write_buffer_with(&self.buffers.random_unit, 0, data_len)
-                .expect("Failed to create buffer writer for random unit buffer");
-            write.as_mut().copy_from_slice(data);
-            self.queue.submit([]);
-        }
+        // Generate new random unit vectors
+        let amount = self.buffers.random_unit.size() / 4 / 3;
+        let random_unit_vectors: Vec<[f32; 3]> = (0..amount)
+            .map(|_| Vec3::random_unit().into())
+            .collect();
+        self.write_to_buffer(&self.buffers.random_unit, &random_unit_vectors);
+        // Generate new random floats
+        let amount = self.buffers.random_double.size() / 4;
+        let random_floats: Vec<f32> = (0..amount)
+            .map(|_| random_float())
+            .collect();
+        self.write_to_buffer(&self.buffers.random_double, &random_floats);
+        self.queue.submit([]);
+
         self.run_pipeline(&self.pipelines.shade, "Shade", debug).await
     }
 
