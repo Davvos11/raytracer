@@ -20,7 +20,7 @@ struct SphereData {
 }
 
 @group(0) @binding(3) var<storage, read> sphereData: array<SphereData>;
-@group(0) @binding(99) var<storage, read_write> debugData: array<u32>;
+@group(0) @binding(99) var<storage, read_write> debugData: array<vec3<f32>>;
 
 // Binding 0 is also used for camera data in generate.wgsl
 // This works because both structs start with the screen size as two u32 values
@@ -81,12 +81,17 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         
         for (var i = 0u; i < arrayLength(&sphereData); i++) {
             let currentSphere = sphereData[i];
+            debugData[i] = currentSphere.center;
             if (hit_sphere(ray, index, i, currentSphere, ray_t)) {
                 hit_anything = true;
                 ray = rayBuffer[index];
                 ray_t = Interval(0.001, ray.t);
             }
         }
+        
+//        if index == 131129 {
+//            debugData[index] = u32(hit_anything);
+//        }
         
         if (!hit_anything) {
             rayBuffer[index] = Ray(ray.origin, ray.direction, ray.t, ray.primIdx, ray.screenXy, ray.accumulator, 0u);
@@ -100,6 +105,12 @@ fn hit_sphere(ray: Ray, ray_index: u32, primId: u32, sphere: SphereData, ray_t: 
     let h = ray.direction.x * oc.x + ray.direction.y * oc.y + ray.direction.z * oc.z;
     let c = (oc.x * oc.x + oc.y * oc.y + oc.z * oc.z) - sphere.radius * sphere.radius;
     
+//    if ray_index == 131129 && primId == 2 {
+//        debugData[0] = sphere.center;
+//        debugData[1] = ray.origin;
+//        debugData[2] = oc;
+//    }
+    
     let discriminant = h * h - a * c;
     if discriminant < 0.0 {
         return false;
@@ -108,6 +119,11 @@ fn hit_sphere(ray: Ray, ray_index: u32, primId: u32, sphere: SphereData, ray_t: 
     let sqrt_discriminant = sqrt(discriminant);
     
     var root = (h - sqrt_discriminant) / a;
+    
+    
+//    if ray_index == 131129 {
+//        debugData[0] = 5.0;
+//    }
     
     if (!interval_surrounds(ray_t, root)) {
         root = (h + sqrt_discriminant) / a;

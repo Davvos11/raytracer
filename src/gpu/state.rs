@@ -1,11 +1,12 @@
 use crate::camera::Camera;
 use crate::gpu::types::{CameraData, SphereData, TriangleData};
 use crate::hittable::hittable_list::HittableList;
-use crate::utils::rtweekend::random_float;
 use crate::utils::debug_buffer;
+use crate::utils::rtweekend::random_float;
 use crate::value::vec3::Vec3;
+use bytemuck::Pod;
 use image::ImageFormat;
-use std::cmp::min;
+use std::cmp::{max, min};
 use std::io;
 use std::io::Write;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
@@ -54,7 +55,7 @@ impl GPUState {
         cam.initialise();
         // Drop mutability of camera object
         let cam = &*cam;
-        
+
         let instance = wgpu::Instance::new(InstanceDescriptor {
             backends: Backends::all(),
             ..Default::default()
@@ -114,7 +115,7 @@ impl GPUState {
         let texture = device.create_texture(&texture_desc);
         let texture_view = texture.create_view(&Default::default());
 
-        
+
         // Setup layout
         // We set this up globally so that all compute shaders can use the same buffers
         let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -250,7 +251,7 @@ impl GPUState {
             contents: bytemuck::cast_slice(&camera_data),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-        
+
         let max_depth = [10u32];
         let max_depth_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Max Depth Buffer"),
@@ -277,7 +278,7 @@ impl GPUState {
             compilation_options: Default::default(),
             cache: None,
         });
-        
+
         ////////////////////////////////////////////////////////////////////////////
         // Extend kernel
         ////////////////////////////////////////////////////////////////////////////
@@ -313,7 +314,7 @@ impl GPUState {
 
         let is_finished_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Is-finished Buffer"),
-            size: BYTE as BufferAddress,
+            size: 2 * BYTE as BufferAddress,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
@@ -374,7 +375,7 @@ impl GPUState {
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
-        
+
         // Output buffer where we will copy the pixels out of after rendering
         let output_buffer_desc = wgpu::BufferDescriptor {
             size: pixel_buffer_size,
@@ -492,11 +493,13 @@ impl GPUState {
         }
     }
 
-    pub async fn get_output_buffer<T: bytemuck::Pod>(&self) -> Vec<T> {
+    pub async fn get_output_buffer<T: bytemuck::Pod>(&self, offset: Option<u64>, size: Option<u64>) -> (u64, Vec<T>) {
         let mut result: Vec<T> = vec![];
+        let offset = offset.unwrap_or(0);
+        let size = size.unwrap_or(self.buffers.output.size()) - offset;
         {
             // Get the data out of the buffer
-            let buffer_slice = self.buffers.output.slice(..);
+            let buffer_slice = self.buffers.output.slice(offset..size);
             let (tx, rx) = futures_intrusive::channel::shared::oneshot_channel();
             buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
                 tx.send(result).unwrap();
@@ -510,9 +513,9 @@ impl GPUState {
 
         // Unmap the output buffer
         self.buffers.output.unmap();
-        result
+        (size, result)
     }
-    
+
     pub fn copy_buffer_to_output(&self, buffer: &wgpu::Buffer, offset: BufferAddress, encoder: &mut CommandEncoder) -> BufferAddress {
         let size = min(buffer.size(), self.buffers.output.size() - offset);
         encoder.copy_buffer_to_buffer(
@@ -525,7 +528,12 @@ impl GPUState {
         size
     }
 
-    async fn run_pipeline<T: bytemuck::Pod>(&self, pipeline: &ComputePipeline, label: &str, get_buffer: impl IntoIterator<Item = &wgpu::Buffer>) -> Option<Vec<T>> {
+    async fn run_pipeline_single<T: Pod>(&self, pipeline: &ComputePipeline, label: &str, get_buffer: Option<&wgpu::Buffer>) -> Option<Vec<T>> {
+        self.run_pipeline::<T, u32>(pipeline, label, (get_buffer, None)).await.0
+    }
+
+    async fn run_pipeline<T1: Pod, T2: Pod>(&self, pipeline: &ComputePipeline, label: &str, get_buffers: (Option<&wgpu::Buffer>, Option<&wgpu::Buffer>)) -> (Option<Vec<T1>>, Option<Vec<T2>>)
+    {
         let mut encoder = self
             .device
             .create_command_encoder(&CommandEncoderDescriptor {
@@ -544,26 +552,37 @@ impl GPUState {
         }
 
         let mut offset = 0;
-        for buffer in get_buffer {
+        if let Some(buffer) = get_buffers.0 {
+            offset += self.copy_buffer_to_output(buffer, offset, &mut encoder);
+        }
+        if let Some(buffer) = get_buffers.1 {
             offset += self.copy_buffer_to_output(buffer, offset, &mut encoder);
         }
 
         self.queue.submit(Some(encoder.finish()));
 
-        if offset > 0 {
-            Some(self.get_output_buffer().await)
-        } else {
-            None
+        let mut offset = 0;
+        let mut result = (None, None);
+        if let Some(buffer) = get_buffers.0 {
+            let (size, output) = self.get_output_buffer(Some(offset), Some(buffer.size())).await;
+            offset += size;
+            result.0 = Some(output);
         }
+        if let Some(buffer) = get_buffers.1 {
+            let (size, output) = self.get_output_buffer(Some(offset), Some(buffer.size())).await;
+            offset += size;
+            result.1 = Some(output);
+        }
+        result
     }
-    
+
     pub async fn render(&self, writer: &mut (impl Write + io::Seek)) -> Result<(), image::ImageError> {
         let debug = true;
 
         let generate_debug = self.generate::<u32>(debug).await;
         debug_buffer(generate_debug.as_deref(), "Generate");
         loop {
-            let (is_finished, extend_debug) = self.extend::<u32>(debug).await;
+            let (is_finished, extend_debug) = self.extend::<f32>(debug).await;
             debug_buffer(extend_debug.as_deref(), "Extend");
             if is_finished {
                 break;
@@ -581,28 +600,27 @@ impl GPUState {
             ImageBuffer::<Rgba<u8>, _>::from_raw(self.texture_width, self.texture_height, pixels)
                 .expect("Container is not large enough");
         buffer.write_to(writer, ImageFormat::Png)?;
-        
+
         Ok(())
     }
-    
+
     async fn generate<T: bytemuck::Pod>(&self, debug: bool) -> Option<Vec<T>> {
         let get_buffer = if debug {Some(&self.buffers.debug)} else {None};
-        self.run_pipeline(&self.pipelines.generate, "Generate", get_buffer).await
+        self.run_pipeline_single(&self.pipelines.generate, "Generate", get_buffer).await
     }
 
-    async fn extend<T: bytemuck::Pod + PartialEq<u32>>(&self, debug: bool) -> (bool, Option<Vec<T>>) {
+    async fn extend<T: Pod>(&self, debug: bool) -> (bool, Option<Vec<T>>) {
         // Set is-finished to true, shaders will set it to false if not finished
         self.write_to_buffer_submit(&self.buffers.is_finished, &[1]);
 
-        let mut get_buffers = vec![&self.buffers.is_finished];
+        let mut get_buffers = (Some(&self.buffers.is_finished), None);
         if debug {
-            get_buffers.push(&self.buffers.debug);
+            get_buffers.1 = Some(&self.buffers.debug);
         }
-        let mut buffer: Vec<T> = self.run_pipeline(&self.pipelines.extend, "Extend", get_buffers).await.unwrap();
-        
-        // TODO O(n)...
-        let is_finished = buffer.remove(0) == 1;
-        let debug_buffer = if debug {Some(buffer)} else {None};
+        let buffers = self.run_pipeline::<u32, T>(&self.pipelines.extend, "Extend", get_buffers).await;
+
+        let is_finished = buffers.0.unwrap()[0] == 1;
+        let debug_buffer = buffers.1;
         (is_finished, debug_buffer)
     }
 
@@ -640,11 +658,11 @@ impl GPUState {
         self.queue.submit([]);
 
         let get_buffer = if debug {Some(&self.buffers.debug)} else {None};
-        self.run_pipeline(&self.pipelines.shade, "Shade", get_buffer).await
+        self.run_pipeline_single(&self.pipelines.shade, "Shade", get_buffer).await
     }
 
     async fn finalize<T: bytemuck::Pod>(&self) -> Vec<T> {
         let get_buffer = Some(&self.buffers.pixel);
-        self.run_pipeline(&self.pipelines.finalize, "Finalize", get_buffer).await.unwrap()
+        self.run_pipeline_single(&self.pipelines.finalize, "Finalize", get_buffer).await.unwrap()
     }
 }

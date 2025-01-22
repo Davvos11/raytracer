@@ -108,7 +108,8 @@ pub struct SphereData {
     color: [f32; 3],
     material: u32,
     fuzz: f32,
-    refraction_index: f32
+    refraction_index: f32,
+    _0: [u32; 2],
 }
 
 impl From<&Sphere> for SphereData {
@@ -148,7 +149,8 @@ impl From<&Sphere> for SphereData {
                 color,
                 material,
                 fuzz,
-                refraction_index
+                refraction_index,
+                ..Default::default()
             }
         }
 
