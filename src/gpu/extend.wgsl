@@ -8,8 +8,6 @@ struct TriangleData {
     fuzz: f32,
 }
 
-// (I removed centroid, I believe it was only used for BVH construction)
-
 @group(0) @binding(2) var<storage, read> triangleData: array<TriangleData>;
 
 struct SphereData {

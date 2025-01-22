@@ -1,10 +1,9 @@
-use wgpu::Color;
 use crate::camera::Camera;
-use crate::hittable::Hittable;
 use crate::hittable::sphere::Sphere;
 use crate::hittable::triangle::Triangle;
+use crate::hittable::Hittable;
 use crate::value::color;
-use crate::value::material::{Lambertian, MaterialType};
+use crate::value::material::MaterialType;
 
 #[repr(C)]
 #[derive(Default, Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -59,7 +58,7 @@ impl From<&Triangle> for TriangleData {
         let refraction_index;
 
         if let Some(material_type) = value.material_type() {
-            match (material_type) {
+            match material_type {
                 MaterialType::Lambertian => {
                     color = value.mat().albedo().into();
                     material = 0;
@@ -121,7 +120,7 @@ impl From<&Sphere> for SphereData {
         let refraction_index: f32;
         
         if let Some(material_type) = value.material_type() {
-            match (material_type) {
+            match material_type {
                 MaterialType::Lambertian => {
                     color = value.mat().albedo().into();
                     material = 0;

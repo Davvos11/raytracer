@@ -263,7 +263,7 @@ impl GPUState {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST
         });
 
-        let ray_item_size = (size_of::<f32>() * 10 + size_of::<u32>() * 1) as u32;
+        let ray_item_size = (size_of::<f32>() * 10 + size_of::<u32>()) as u32;
         let ray_buffer_size =
             (texture_width * texture_height * ray_item_size) as u64;
         let ray_buffer = device.create_buffer(&wgpu::BufferDescriptor {
