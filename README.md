@@ -18,6 +18,8 @@ It will write the scene as json to the `scenes` folder. (and also render to the 
 There are various possible options, most importantly, the algorithm for acceleration can be specified using
 `--algorithm <ALGORITHM>`. Possible values are `naive`, `bvh` or `grid`.
 
+**To make use of Wavefront path tracing using the GPU, use the `--gpu` flag.**
+
 More options can be added using the `-o <OPTION>` flag.
 
 For example `-o draw-boxes` draws the BVH bounding boxes.
@@ -45,7 +47,7 @@ Any time a image is generated using any of the above commands, statistics are co
 - [x] Importing PLY files, for example the [Stanford Models](https://graphics.stanford.edu/data/3Dscanrep/)
 - [x] BVH using SAH, based on slides from _Advanced Graphics_
 - [x] Grid acceleration, based on [Amanatides, Woo, et al.](http://www.cse.yorku.ca/~amana/research/grid.pdf)
-- [ ] Wavefront GPU Path Tracing
+- [x] Wavefront GPU Path Tracing
 
 ## Acknowledgments
 This repository includes some `ply` models from the [Stanford Models](https://graphics.stanford.edu/data/3Dscanrep/).
