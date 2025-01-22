@@ -45,6 +45,7 @@ struct Pipelines {
 }
 
 const BYTE: u32 = size_of::<u32>() as u32;
+const VEC_SIZE: u32 = BYTE * 4;
 
 impl GPUState {
     pub async fn new(cam: &mut Camera, world: &HittableList) -> Self {
@@ -313,9 +314,8 @@ impl GPUState {
         ////////////////////////////////////////////////////////////////////////////
         let shade_shader = device.create_shader_module(include_wgsl!("shade.wgsl"));
 
-        let vector_size = (size_of::<f32>() * 3 * 3) as u32;
         let random_unit_buffer_size =
-            (texture_width * texture_height * vector_size) as u64;
+            (texture_width * texture_height * VEC_SIZE) as u64;
         let random_unit_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Random unit Buffer"),
             size: random_unit_buffer_size,
@@ -324,7 +324,7 @@ impl GPUState {
         });
 
         let random_double_buffer_size =
-            (texture_width * texture_height * (size_of::<f32>() as u32)) as u64;
+            (texture_width * texture_height * BYTE) as u64;
         let random_double_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Random double Buffer"),
             size: random_double_buffer_size,
@@ -347,9 +347,8 @@ impl GPUState {
         ////////////////////////////////////////////////////////////////////////////
         let finalize_shader = device.create_shader_module(include_wgsl!("finalize.wgsl"));
 
-        let pixel_size = (size_of::<u32>() * 4) as u32;
         let pixel_buffer_size =
-            (texture_width * texture_height * pixel_size) as u64;
+            (texture_width * texture_height * VEC_SIZE) as u64;
         let pixel_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Pixel Buffer"),
             size: pixel_buffer_size,
@@ -467,93 +466,6 @@ impl GPUState {
             pipelines,
             bind_group,
         }
-    }
-
-    #[allow(dead_code)]
-    // TODO get the code to render to an image from here, then remove this function
-    pub async fn old_render(
-        &self,
-        writer: &mut (impl Write + io::Seek),
-    ) 
-        -> Result<(), image::ImageError> {
-        // Create encoder for commands to ben sent to the GPU
-        let mut encoder = self
-            .device
-            .create_command_encoder(&CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
-
-        {
-            // Clear the screen
-            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &self.texture_view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Color::BLACK),
-                        store: StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                occlusion_query_set: None,
-                timestamp_writes: None,
-            });
-
-            // Set shader pipeline
-            // render_pass.set_pipeline(&self.render_pipeline);
-            // Draw (using single vertex)
-            // render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw(0..3, 0..1);
-        }
-
-        let u32_size = size_of::<u32>() as u32;
-
-        // Set the encoder to copy the result to our output buffer
-        encoder.copy_texture_to_buffer(
-            wgpu::ImageCopyTexture {
-                aspect: wgpu::TextureAspect::All,
-                texture: &self.texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-            },
-            wgpu::ImageCopyBuffer {
-                buffer: &self.buffers.output,
-                layout: wgpu::ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(u32_size * self.texture_width),
-                    rows_per_image: Some(self.texture_height),
-                },
-            },
-            self.texture_size,
-        );
-
-        // Submit the command buffer
-        self.queue.submit(std::iter::once(encoder.finish()));
-
-        {
-            // Get the data out of the buffer
-            let buffer_slice = self.buffers.output.slice(..);
-            let (tx, rx) = futures_intrusive::channel::shared::oneshot_channel();
-            buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-                tx.send(result).unwrap();
-            });
-            self.device.poll(wgpu::Maintain::Wait);
-            rx.receive().await.unwrap().unwrap();
-
-            let data = buffer_slice.get_mapped_range();
-
-            use image::{ImageBuffer, Rgba};
-            let buffer =
-                ImageBuffer::<Rgba<u8>, _>::from_raw(self.texture_width, self.texture_height, data)
-                    .unwrap();
-            buffer.write_to(writer, ImageFormat::Png)?;
-        }
-
-        // Unmap the output buffer
-        self.buffers.output.unmap();
-
-        Ok(())
     }
 
     pub async fn get_output_buffer<T: bytemuck::Pod>(&self) -> Vec<T> {
