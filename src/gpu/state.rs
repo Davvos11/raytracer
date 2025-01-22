@@ -9,7 +9,7 @@ use std::cmp::min;
 use std::io;
 use std::io::Write;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{include_wgsl, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, BufferSize, CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor, Features, InstanceDescriptor, Limits, MemoryHints, PipelineLayoutDescriptor, PowerPreference, RequestAdapterOptions, ShaderStages, Texture, TextureView};
+use wgpu::{include_wgsl, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType, BufferSize, CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor, Features, InstanceDescriptor, Limits, MemoryHints, PipelineLayoutDescriptor, PowerPreference, RequestAdapterOptions, ShaderStages, Texture, TextureView};
 
 pub struct GPUState {
     device: wgpu::Device,
@@ -35,6 +35,7 @@ struct Buffers {
     random_unit: wgpu::Buffer,
     random_double: wgpu::Buffer,
     pixel: wgpu::Buffer,
+    is_finished: wgpu::Buffer,
 }
 
 struct Pipelines {
@@ -197,6 +198,17 @@ impl GPUState {
                     count: None,
                 },
                 BindGroupLayoutEntry {
+                    // Is-finished buffer
+                    binding: 9,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: false},
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
                     // Max depth data
                     binding: 98,
                     visibility: ShaderStages::COMPUTE,
@@ -299,6 +311,13 @@ impl GPUState {
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
         });
 
+        let is_finished_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Is-finished Buffer"),
+            size: BYTE as BufferAddress,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+
         // Set up pipeline
         let extend_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
             label: Some("Extend kernel"),
@@ -399,6 +418,7 @@ impl GPUState {
             sphere: sphere_buffer,
             random_unit: random_unit_buffer,
             random_double: random_double_buffer,
+            is_finished: is_finished_buffer,
             pixel: pixel_buffer,
         };
 
@@ -441,6 +461,10 @@ impl GPUState {
                 BindGroupEntry {
                     binding: 8,
                     resource: buffers.random_double.as_entire_binding()
+                },
+                BindGroupEntry {
+                    binding: 9,
+                    resource: buffers.is_finished.as_entire_binding()
                 },
                 BindGroupEntry {
                     binding: 98,
@@ -495,7 +519,7 @@ impl GPUState {
             0,
             &self.buffers.output,
             0,
-            min(self.buffers.debug.size(), self.buffers.output.size()),
+            min(buffer.size(), self.buffers.output.size()),
         );
     }
 
@@ -532,12 +556,17 @@ impl GPUState {
     
     pub async fn render(&self, writer: &mut (impl Write + io::Seek)) -> Result<(), image::ImageError> {
         let debug = true;
+        
         let generate_debug = self.generate::<u32>(debug).await;
-        let extend_debug = self.extend::<u32>(debug).await;
-        let shade_debug = self.shade::<f32>(debug).await;
         debug_buffer(generate_debug.as_deref(), "Generate");
-        debug_buffer(extend_debug.as_deref(), "Extend");
-        debug_buffer(shade_debug.as_deref(), "Shade");
+        loop {
+            let is_finished = self.extend().await;
+            if is_finished {
+                break;
+            }
+            let shade_debug = self.shade::<f32>(debug).await;
+            debug_buffer(shade_debug.as_deref(), "Shade");
+        }
 
         let pixels: Vec<_> = self.finalize::<u32>().await
             .iter().map(|&val| val as u8)
@@ -557,9 +586,14 @@ impl GPUState {
         self.run_pipeline(&self.pipelines.generate, "Generate", get_buffer).await
     }
 
-    async fn extend<T: bytemuck::Pod>(&self, debug: bool) -> Option<Vec<T>> {
-        let get_buffer = if debug {Some(&self.buffers.debug)} else {None};
-        self.run_pipeline(&self.pipelines.extend, "Extend", get_buffer).await
+    async fn extend(&self) -> bool {
+        // Set is-finished to true, shaders will set it to false if not finished
+        self.write_to_buffer_submit(&self.buffers.is_finished, &[1]);
+
+        let get_buffer = Some(&self.buffers.is_finished);
+        let buffer: Vec<u32> = self.run_pipeline(&self.pipelines.extend, "Extend", get_buffer).await.unwrap();
+        // Return if we are finished
+        buffer[0] == 1
     }
 
     /// Make sure to call `self.queue.submit([])` after this function.

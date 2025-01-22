@@ -48,6 +48,7 @@ struct Ray {
 
 @group(0) @binding(1) var<storage, read_write> rayBuffer: array<Ray>;
 
+@group(0) @binding(9) var<storage, read_write> isFinished: u32;
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -62,6 +63,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         if (ray.depth == 0u) {
             return;
         }
+        // Set isFinished to false (is initialised at 1 every loop)
+        isFinished = 0u;
         
         var ray_t = Interval(0.001, 10000000); // todo: find a way in wgsl to get max f32 value (0x1.fffffcp-127f ??)
         
