@@ -22,7 +22,7 @@ struct Ray {
 
 @group(0) @binding(1) var<storage, read_write> rayBuffer: array<Ray>;
 
-@group(0) @binding(99) var<storage, read_write> debugData: array<vec3<f32>>;
+@group(0) @binding(99) var<storage, read_write> debugData: array<u32>;
 
 @group(0) @binding(7) var<storage, read_write> pixelBuffer: array<vec3<f32>>;
 
@@ -31,6 +31,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let x = global_id.x;
     let y = global_id.y;
     
+    // TODO these if statements can probably be removed
     if (x < cameraData.screenSize.x && y < cameraData.screenSize.y) {
         let index = y * cameraData.screenSize.x + x;
         

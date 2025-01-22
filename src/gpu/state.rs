@@ -44,6 +44,8 @@ struct Pipelines {
     finalize: ComputePipeline,
 }
 
+const BYTE: u32 = size_of::<u32>() as u32;
+
 impl GPUState {
     pub async fn new(cam: &mut Camera, world: &HittableList) -> Self {
         // Initialise camera
@@ -242,8 +244,8 @@ impl GPUState {
             contents: bytemuck::cast_slice(&max_depth),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST
         });
-
-        let ray_item_size = (size_of::<f32>() * 10 + size_of::<u32>()) as u32;
+        
+        let ray_item_size = BYTE * (4 * 5);
         let ray_buffer_size =
             (texture_width * texture_height * ray_item_size) as u64;
         let ray_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -345,7 +347,7 @@ impl GPUState {
         ////////////////////////////////////////////////////////////////////////////
         let finalize_shader = device.create_shader_module(include_wgsl!("finalize.wgsl"));
 
-        let pixel_size = (size_of::<f32>() * 4) as u32;
+        let pixel_size = (size_of::<u32>() * 4) as u32;
         let pixel_buffer_size =
             (texture_width * texture_height * pixel_size) as u64;
         let pixel_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -600,7 +602,7 @@ impl GPUState {
             compute_pass.set_pipeline(pipeline);
             compute_pass.set_bind_group(0, &self.bind_group, &[]);
             compute_pass.insert_debug_marker(&format!("{label} kernel"));
-            compute_pass.dispatch_workgroups(self.texture_width, self.texture_height, 1);
+            compute_pass.dispatch_workgroups(self.texture_width / 16, self.texture_height / 16, 1);
         }
 
         if let Some(buffer) = get_buffer {
@@ -618,7 +620,7 @@ impl GPUState {
     
     pub async fn render(&self, writer: &mut (impl Write + io::Seek)) -> Result<(), image::ImageError> {
         let debug = true;
-        let generate_debug = self.generate::<f32>(debug).await;
+        let generate_debug = self.generate::<u32>(debug).await;
         let extend_debug = self.extend::<u32>(debug).await;
         let shade_debug = self.shade::<f32>(debug).await;
         if debug {
@@ -627,6 +629,10 @@ impl GPUState {
             let shade_debug = shade_debug.unwrap();
             
             println!("Generate:      {:?}", &generate_debug[0..20]);
+            println!("Generate (end):{:?}", &generate_debug[generate_debug.len() - 20..]);
+            let generate_nonzero = get_non_zero(&generate_debug);
+            println!("Generate != 0: {:?}", generate_nonzero.iter().take(20).collect::<Vec<_>>());
+            println!("Generate != 0: {}", generate_nonzero.len());
             
             println!("Extend:        {:?}", &extend_debug[0..20]);
             let extend_nonzero = get_non_zero(&extend_debug);
@@ -639,15 +645,16 @@ impl GPUState {
             println!("Shade != 0:    {}", shade_nonzero.len());
         }
 
-        let pixels: Vec<_> = self.finalize::<f32>().await;
-            // .iter().map(|&val| (val * 255.0) as u8)
-            // .collect();
-        
-        println!("Pixels: {:?}", &pixels[0..20]);
+        let pixels: Vec<_> = self.finalize::<u32>().await
+            .iter().map(|&val| val as u8)
+            .collect();
+
+        println!("First pixels: {:?}", &pixels[0..20]);
+        println!("Last  pixels {:?}", &pixels[2359296 - 20..]);
 
         use image::{ImageBuffer, Rgba};
         let buffer =
-            ImageBuffer::<Rgba<f32>, _>::from_raw(self.texture_width, self.texture_height, pixels)
+            ImageBuffer::<Rgba<u8>, _>::from_raw(self.texture_width, self.texture_height, pixels)
                 .expect("Container is not large enough");
         buffer.write_to(writer, ImageFormat::Png)?;
         
