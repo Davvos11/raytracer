@@ -31,9 +31,8 @@ struct Buffers {
     ray: wgpu::Buffer,
     triangle: wgpu::Buffer,
     sphere: wgpu::Buffer,
-    shadow_ray: wgpu::Buffer,
-    reflection_ray: wgpu::Buffer,
     random_unit: wgpu::Buffer,
+    random_double: wgpu::Buffer,
     pixel: wgpu::Buffer,
 }
 
@@ -181,28 +180,6 @@ impl GPUState {
                     count: None,
                 },
                 BindGroupLayoutEntry {
-                    // Shadow ray buffer
-                    binding: 4,
-                    visibility: ShaderStages::COMPUTE,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Storage { read_only: false},
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    // Reflection ray buffer
-                    binding: 5,
-                    visibility: ShaderStages::COMPUTE,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Storage { read_only: false},
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
                     // Random unit buffer
                     binding: 6,
                     visibility: ShaderStages::COMPUTE,
@@ -219,6 +196,17 @@ impl GPUState {
                     visibility: ShaderStages::COMPUTE,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Storage { read_only: false},
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    // Random double buffer
+                    binding: 8,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: true},
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
@@ -342,26 +330,21 @@ impl GPUState {
         ////////////////////////////////////////////////////////////////////////////
         let shade_shader = device.create_shader_module(include_wgsl!("shade.wgsl"));
 
-        let shadow_ray_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Shadow ray Buffer"),
-            size: ray_buffer_size,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            mapped_at_creation: false,
-        });
-
-        let reflection_ray_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Shadow ray Buffer"),
-            size: ray_buffer_size,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            mapped_at_creation: false,
-        });
-
         let vector_size = (size_of::<f32>() * 3 * 3) as u32;
         let random_unit_buffer_size =
             (texture_width * texture_height * vector_size) as u64;
         let random_unit_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Random unit Buffer"),
             size: random_unit_buffer_size,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let random_double_buffer_size =
+            (texture_width * texture_height * (size_of::<f32>() as u32)) as u64;
+        let random_double_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Random double Buffer"),
+            size: random_double_buffer_size,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -411,9 +394,8 @@ impl GPUState {
             ray: ray_buffer,
             triangle: triangle_buffer,
             sphere: sphere_buffer,
-            shadow_ray: shadow_ray_buffer,
-            reflection_ray: reflection_ray_buffer,
             random_unit: random_unit_buffer,
+            random_double: random_double_buffer,
             pixel: pixel_buffer,
         };
 
@@ -445,20 +427,16 @@ impl GPUState {
                     resource: buffers.sphere.as_entire_binding(),
                 },
                 BindGroupEntry {
-                    binding: 4,
-                    resource: buffers.shadow_ray.as_entire_binding(),
-                },
-                BindGroupEntry {
-                    binding: 5,
-                    resource: buffers.reflection_ray.as_entire_binding(),
-                },
-                BindGroupEntry {
                     binding: 6,
                     resource: buffers.random_unit.as_entire_binding(),
                 },
                 BindGroupEntry {
                     binding: 7,
                     resource: buffers.pixel.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 8,
+                    resource: buffers.random_double.as_entire_binding()
                 },
                 BindGroupEntry {
                     binding: 98,

@@ -59,12 +59,13 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if (x < screenData.x && y < screenData.y) {
         let index = y * screenData.x + x;
 
-        var ray_t = Interval(0.001, 10000000); // todo: find a way in wgsl to get max f32 value (0x1.fffffcp-127f ??)
         var ray = rayBuffer[index];
         
         if (ray.depth == 0u) {
             return;
         }
+        
+        var ray_t = Interval(0.001, 10000000); // todo: find a way in wgsl to get max f32 value (0x1.fffffcp-127f ??)
         
         var hit_anything = false;
         
@@ -196,9 +197,7 @@ fn vec3_multiply(a: vec3<f32>, b: f32) -> vec3<f32> {
     return vec3(a.x * b, a.y * b, a.z * b);
 }
 
-fn vec3_multiply_vec3(a: vec3<f32>, b: vec3<f32>) -> vec3<f32> {
-    return vec3(a.x * b.x, a.y * b.y, a.z * b.z);
-}
+
 
 fn vec3_divide(a: vec3<f32>, b: f32) -> vec3<f32> {
     return vec3(a.x / b, a.y / b, a.z / b);
