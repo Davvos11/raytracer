@@ -513,17 +513,19 @@ impl GPUState {
         result
     }
     
-    pub fn copy_buffer_to_output(&self, buffer: &wgpu::Buffer, encoder: &mut CommandEncoder) {
+    pub fn copy_buffer_to_output(&self, buffer: &wgpu::Buffer, offset: BufferAddress, encoder: &mut CommandEncoder) -> BufferAddress {
+        let size = min(buffer.size(), self.buffers.output.size() - offset);
         encoder.copy_buffer_to_buffer(
             buffer,
             0,
             &self.buffers.output,
-            0,
-            min(buffer.size(), self.buffers.output.size()),
+            offset,
+            size,
         );
+        size
     }
 
-    async fn run_pipeline<T: bytemuck::Pod>(&self, pipeline: &ComputePipeline, label: &str, get_buffer: Option<&wgpu::Buffer>) -> Option<Vec<T>> {
+    async fn run_pipeline<T: bytemuck::Pod>(&self, pipeline: &ComputePipeline, label: &str, get_buffer: impl IntoIterator<Item = &wgpu::Buffer>) -> Option<Vec<T>> {
         let mut encoder = self
             .device
             .create_command_encoder(&CommandEncoderDescriptor {
@@ -541,13 +543,14 @@ impl GPUState {
             compute_pass.dispatch_workgroups(self.texture_width / 16, self.texture_height / 16, 1);
         }
 
-        if let Some(buffer) = get_buffer {
-            self.copy_buffer_to_output(buffer, &mut encoder);
+        let mut offset = 0;
+        for buffer in get_buffer {
+            offset += self.copy_buffer_to_output(buffer, offset, &mut encoder);
         }
 
         self.queue.submit(Some(encoder.finish()));
 
-        if get_buffer.is_some() {
+        if offset > 0 {
             Some(self.get_output_buffer().await)
         } else {
             None
@@ -556,11 +559,12 @@ impl GPUState {
     
     pub async fn render(&self, writer: &mut (impl Write + io::Seek)) -> Result<(), image::ImageError> {
         let debug = true;
-        
+
         let generate_debug = self.generate::<u32>(debug).await;
         debug_buffer(generate_debug.as_deref(), "Generate");
         loop {
-            let is_finished = self.extend().await;
+            let (is_finished, extend_debug) = self.extend::<u32>(debug).await;
+            debug_buffer(extend_debug.as_deref(), "Extend");
             if is_finished {
                 break;
             }
@@ -586,14 +590,20 @@ impl GPUState {
         self.run_pipeline(&self.pipelines.generate, "Generate", get_buffer).await
     }
 
-    async fn extend(&self) -> bool {
+    async fn extend<T: bytemuck::Pod + PartialEq<u32>>(&self, debug: bool) -> (bool, Option<Vec<T>>) {
         // Set is-finished to true, shaders will set it to false if not finished
         self.write_to_buffer_submit(&self.buffers.is_finished, &[1]);
 
-        let get_buffer = Some(&self.buffers.is_finished);
-        let buffer: Vec<u32> = self.run_pipeline(&self.pipelines.extend, "Extend", get_buffer).await.unwrap();
-        // Return if we are finished
-        buffer[0] == 1
+        let mut get_buffers = vec![&self.buffers.is_finished];
+        if debug {
+            get_buffers.push(&self.buffers.debug);
+        }
+        let mut buffer: Vec<T> = self.run_pipeline(&self.pipelines.extend, "Extend", get_buffers).await.unwrap();
+        
+        // TODO O(n)...
+        let is_finished = buffer.remove(0) == 1;
+        let debug_buffer = if debug {Some(buffer)} else {None};
+        (is_finished, debug_buffer)
     }
 
     /// Make sure to call `self.queue.submit([])` after this function.
