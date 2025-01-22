@@ -1,5 +1,5 @@
-use std::fmt::{format, Debug};
 use num_traits::Zero;
+use std::fmt::Debug;
 
 pub mod rtweekend;
 pub mod scenes;

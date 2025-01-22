@@ -1,15 +1,15 @@
 use crate::camera::Camera;
 use crate::gpu::types::{CameraData, SphereData, TriangleData};
 use crate::hittable::hittable_list::HittableList;
+use crate::utils::rtweekend::random_float;
+use crate::utils::debug_buffer;
 use crate::value::vec3::Vec3;
 use image::ImageFormat;
 use std::cmp::min;
 use std::io;
 use std::io::Write;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{include_wgsl, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, BufferSize, Color, CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor, Features, InstanceDescriptor, Limits, LoadOp, MemoryHints, Operations, PipelineLayoutDescriptor, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, ShaderStages, StoreOp, Texture, TextureView};
-use crate::utils::{debug_buffer, get_non_zero};
-use crate::utils::rtweekend::random_float;
+use wgpu::{include_wgsl, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, BufferSize, CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor, Features, InstanceDescriptor, Limits, MemoryHints, PipelineLayoutDescriptor, PowerPreference, RequestAdapterOptions, ShaderStages, Texture, TextureView};
 
 pub struct GPUState {
     device: wgpu::Device,
